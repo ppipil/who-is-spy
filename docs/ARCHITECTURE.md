@@ -25,7 +25,14 @@ AI profiles carry stable `strategyId` values into `Player`, then into the allowl
 - The seeded 20-game Fake evaluation groups each strategy independently and reduces the description-homogeneity proxy from baseline 0.7692 to 0.
 - This is deterministic engineering evidence only. Real-model strategy differentiation remains unclaimed until explicit live sampling is run.
 
-## Planned orchestration and observability
+## Sequential description orchestration
 
-The next boundary will stage sequential descriptions locally, expose only accepted earlier same-round descriptions to later Agents, and commit the whole batch atomically. Quality policies will be enforced through composable server-side rules. A redacted trace sink will then connect model attempts, quality decisions, evaluation metrics, fault injection, and replay without placing secrets in trace records.
+`GameEngine.generateDescriptions` iterates living AI seats in stable order. It keeps generated outputs in a method-local staged array and builds each next context from the formal description history plus that accepted staged prefix. No staged object contains player roles or words; `buildAgentContext` still reconstructs the final input through its allowlist.
 
+The caller appends descriptions/events and changes phase only after the method returns the complete batch. If any Agent throws—including the fourth—the formal state retains its previous descriptions, events, phase, ballot, and eligible targets. A test compares the full internal state before and after injected fourth-Agent failure. Another assertion filters out the already-public human description and observes current-round AI prefix sizes `0, 1, 2, 3`.
+
+Voting remains `Promise.all` over one snapshot. `AgentContext` contains no votes, so current-ballot choices cannot influence later voters.
+
+## Planned quality and observability
+
+Quality policies will be enforced through composable server-side rules. A redacted trace sink will then connect model attempts, quality decisions, evaluation metrics, fault injection, and replay without placing secrets in trace records.

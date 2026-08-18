@@ -18,7 +18,7 @@ Implemented strategies are `cautious`, `intuitive`, `analytical`, and `contraria
 
 ## Description and voting orchestration
 
-Descriptions will be generated sequentially into an action-local staged list. Each later Agent will see only previously accepted public descriptions from the same round plus the existing allowlisted history. The staged list will be committed to `GameState` only after every required description succeeds. Voting will continue to use a single public snapshot and may remain parallel so current-ballot votes cannot influence one another.
+Descriptions are generated sequentially into an action-local staged list. Each later Agent sees only previously accepted public descriptions from the same round plus existing allowlisted history. The staged list is committed to `GameState` only after every required description succeeds; an injected fourth-Agent failure leaves the full formal state unchanged. Voting continues to use a single public snapshot in parallel so current-ballot votes cannot influence one another.
 
 ## Quality gate
 
