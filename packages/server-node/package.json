@@ -7,6 +7,7 @@
     "dev": "tsx watch server/index.ts",
     "start": "NODE_ENV=production tsx server/index.ts",
     "build": "tsc --noEmit",
+    "eval": "tsx server/eval-cli.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
