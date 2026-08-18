@@ -26,7 +26,7 @@ The planned composable gate covers empty/invalid length, direct secret leakage, 
 
 ## Evaluation and gates
 
-The evaluation CLI will support seeded FakeModel regression and explicitly enabled real-model sampling. Metrics will include completion, quality rejection types, valid votes, retries, latency percentiles, token usage, strategy outcomes, and a description-homogeneity proxy. Hard correctness gates will be deterministic and non-zero on failure; noisy real-model metrics will be reported separately with sample-size limitations.
+The evaluation CLI supports seeded FakeModel regression and explicitly selected real-model sampling. Metrics include completion, quality rejection types, valid votes, retries, latency percentiles, token usage, strategy outcomes, and a description-homogeneity proxy. Hard correctness gates are deterministic and non-zero on failure; noisy real-model metrics are reported separately with sample-size limitations. Baseline values and limitations are in `docs/EVALUATION.md`.
 
 ## Trace, fault injection, and replay
 
@@ -43,9 +43,10 @@ npm install
 npm run test:node
 npm run contract:node
 npm run build
+npm run eval:node -- --games 20 --seed 42 --model fake
 ```
 
-The evaluation, fault, and replay commands will be documented here after their implementations have been run successfully. Current baseline verification evidence is in `docs/BASELINE_AUDIT.md`.
+The fault and replay commands will be documented here after their implementations have been run successfully. Current baseline verification evidence is in `docs/BASELINE_AUDIT.md`.
 
 ## FakeModel versus real-model acceptance
 
@@ -64,4 +65,3 @@ The history begins with an unchanged baseline import and `baseline-v1`, then kee
 ## Earlier Prototype
 
 Before the formal baseline arrived, a separate from-scratch Prototype was developed in the sibling `ai-undercover` repository. It remains independent and is not copied into this repository. A public link will be added only if its publication status is confirmed.
-
