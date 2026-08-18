@@ -5,10 +5,10 @@
 
 ## 0. 我选择的技术栈
 
-- [ ] Node(`packages/server-node`)
+- [x] Node(`packages/server-node`)
 - [ ] Go(`packages/server-go`)
 
-选择理由:
+选择理由:Node/TypeScript 与现有 React 客户端共享类型语境,现有 Vitest、FakeModel 和可注入随机源也适合为 AgentContext、策略、顺序编排、质量门禁、评测与故障恢复建立确定性证据。只修改 `packages/server-node`,Go 基线保持原样。
 
 ## 1. 我完成了哪些任务线
 
@@ -19,14 +19,14 @@
 
 > 任务线④是现场当场揭晓的题目,带回家不用准备,这里也不用写。
 
-未完成的部分及原因:
+未完成的部分及原因:①②③均处于实现阶段,完成和验证前不勾选。当前只完成了源码一致性审计、`baseline-v1`、Windows 契约启动兼容和基线验证;前端加分项暂不投入。
 
 ## 2. Coding Agent 使用记录
 
-- 我用的工具(Cursor / Claude Code / TraeCode 等):
-- 哪些改动主要是 Agent 生成的(涉及哪些文件 / 大致范围):
-- 我人工审查和改动了哪些地方:
-- **Agent 有一处给错了或给得不够好,我是怎么发现并纠正的**:
+- 我用的工具(Cursor / Claude Code / TraeCode 等):Codex Desktop(本仓库的主开发 Agent)。
+- 哪些改动主要是 Agent 生成的(涉及哪些文件 / 大致范围):截至当前,Codex 创建 `AGENTS.md`、`PLAN.md`、`README_CANDIDATE.md`、`docs/BASELINE_AUDIT.md`,并修改 `contract/run.mjs` 的跨平台启动方式;后续代码范围将在对应里程碑追加。
+- 我人工审查和改动了哪些地方:用户明确纠正了初始任务中的目录复制和 README 归属方案;因此正式目录直接初始化,三个官方文档保持受保护,候选人报告单列。所有测试结论均在初始化后重跑,未沿用旧日志。
+- **Agent 有一处给错了或给得不够好,我是怎么发现并纠正的**:发现官方 `spawn('npx')` 在 Windows 报 `ENOENT` 后,初步候选方案是把命令替换为 `npx.cmd`;用独立 `child_process.spawn` 探针实际运行后得到 `spawn EINVAL`,证明该建议仍不可靠。最终改为 `process.execPath + 已安装的 tsx CLI`,并用 28/28 契约、6/6 域测试和 build 验证。该修正避免 shell 依赖并能直接管理后端子进程。
 
 ## 3. 关键设计取舍
 
@@ -38,12 +38,14 @@
 - ② 每个质量指标是怎么算的,阈值为什么定这个数:
 - ③ 一条日志 / trace 里记了哪些字段,怎么保证不把密词和 Key 写进去:
 
+当前基线观察:四个 `style` 值只存在于 `AI_PROFILES`,创建玩家时即被丢弃;`generateDescriptions` 对同一快照使用 `Promise.all`,因此同轮 AI 上下文不会逐步增长。详细证据见 `docs/BASELINE_AUDIT.md`;上述各题在对应实现完成时填写,不预先宣称结果。
+
 ## 4. 验证证据
 
 > 贴命令 + 关键输出(注意别带上密钥或完整密词)。
 
-- 契约(所选栈):`npm run contract:node` 或 `npm run contract:go` 的结果:
-- 域测试 / 构建结果:
+- 契约(所选栈):`npm run contract:node` 基线首次因 Windows `spawn npx ENOENT` 在断言前失败;提交最小跨平台启动修复后真实结果为 28 通过 / 0 失败。
+- 域测试 / 构建结果:`npm run test:node` 为 3 个测试文件、6 个测试通过;`npm run build` 的 Web Vite build(1,797 modules)和 Node `tsc --noEmit` 均通过。Node `v22.22.0`,npm `10.9.4`。`npm install` 因 lockfile 的 `bnpm.byted.org` URL 两次 `ECONNRESET`,但 `npm ls --all --depth=0` 退出 0,现有依赖树完整。
 - 批量评测脚本的输出(指标表):
 - 故障注入 + 定位到具体一局 / 某一轮 / 某个 AI / 第几次尝试的示例:
 - 用真实模型完整跑一局的记录:
