@@ -13,7 +13,7 @@
 - [x] Create the clean baseline commit and `baseline-v1` tag.
 - [x] Re-run baseline Node tests, contract, and build; record the Windows launcher issue and fix it separately.
 - [x] Add a seeded multi-game evaluation harness and capture pre-strategy baseline metrics.
-- [ ] Introduce an extensible strategy boundary used by description and vote behavior.
+- [x] Introduce an extensible strategy boundary used by description and vote behavior.
 - [ ] Generate descriptions sequentially against staged public context and commit the round atomically.
 - [ ] Add composable description quality rules with bounded targeted repair.
 - [ ] Add redacted structured traces, deterministic fault injection, and timeline replay.
