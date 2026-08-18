@@ -191,13 +191,18 @@ export class GameEngine {
 
   private async generateDescriptions(game: GameState): Promise<Description[]> {
     const agents = game.players.filter((player) => !player.isHuman && player.alive);
-    const outputs = await Promise.all(
-      agents.map(async (agent) => ({
+    const outputs: Description[] = [];
+    for (const agent of agents) {
+      const stagedGame =
+        outputs.length === 0
+          ? game
+          : { ...game, descriptions: [...game.descriptions, ...outputs] };
+      outputs.push({
         playerId: agent.id,
-        text: await this.model.describe(buildAgentContext(game, agent)),
+        text: await this.model.describe(buildAgentContext(stagedGame, agent)),
         round: game.round,
-      })),
-    );
+      });
+    }
     return outputs;
   }
 
