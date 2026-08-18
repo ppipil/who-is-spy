@@ -8,18 +8,20 @@
 // 任一后端 + 候选人改动后都必须持续通过。任一断言失败 -> 进程非 0 退出。
 
 import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
 import process from 'node:process';
 
 const target = process.argv[2] ?? 'node';
 const PORT = Number(process.env.CONTRACT_PORT ?? 8790);
 const BASE = `http://127.0.0.1:${PORT}`;
-const ROOT = new URL('..', import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
+const TSX_CLI = fileURLToPath(new URL('../node_modules/tsx/dist/cli.mjs', import.meta.url));
 
 const backends = {
   node: {
-    cmd: 'npx',
-    args: ['tsx', 'server/index.ts'],
+    cmd: process.execPath,
+    args: [TSX_CLI, 'server/index.ts'],
     cwd: `${ROOT}packages/server-node`,
   },
   go: {
