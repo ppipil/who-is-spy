@@ -1,0 +1,28 @@
+{
+  "name": "ai-undercover-interview",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI 谁是卧底 · Agent 全栈面试题(monorepo:前端 + Node/Go 双后端 + 语言无关契约)",
+  "engines": {
+    "node": "^20.19.0 || ^22.12.0 || >=24.0.0"
+  },
+  "type": "module",
+  "workspaces": [
+    "packages/web",
+    "packages/server-node",
+    "contract"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace packages/server-node & npm run dev --workspace packages/web",
+    "dev:node": "npm run dev --workspace packages/server-node",
+    "dev:go": "cd packages/server-go && GAME_MODEL=real go run .",
+    "dev:web": "npm run dev --workspace packages/web",
+    "build": "npm run build --workspace packages/web && npm run build --workspace packages/server-node",
+    "test:node": "npm test --workspace packages/server-node",
+    "test:go": "cd packages/server-go && go test ./...",
+    "contract:node": "node contract/run.mjs node",
+    "contract:go": "node contract/run.mjs go",
+    "verify": "npm run build && npm run test:node && npm run contract:node && npm run contract:go"
+  },
+  "license": "MIT"
+}

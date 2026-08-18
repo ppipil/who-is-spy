@@ -1,0 +1,10 @@
+{
+  "name": "@ai-undercover/contract",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "语言无关的黑盒契约测试:对着 http://localhost:8787 验证任一后端实现",
+  "scripts": {
+    "test": "node run.mjs node"
+  }
+}
