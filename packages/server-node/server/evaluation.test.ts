@@ -27,8 +27,14 @@ describe('evaluation harness', () => {
       publicStateLeakOccurrences: 0,
       illegalStateOccurrences: 0,
     });
-    expect(first.metrics.descriptionHomogeneity).toBeGreaterThan(0.7);
-    expect(first.metrics.byStrategyId['baseline-unassigned'].games).toBe(16);
+    expect(first.metrics.descriptionHomogeneity).toBeLessThan(0.7692);
+    expect(Object.keys(first.metrics.byStrategyId)).toEqual([
+      'analytical',
+      'cautious',
+      'contrarian',
+      'intuitive',
+    ]);
+    expect(Object.values(first.metrics.byStrategyId).every((group) => group.games === 4)).toBe(true);
 
     expect(second.configuration).toEqual(first.configuration);
     expect(second.metrics.completedGames).toBe(first.metrics.completedGames);

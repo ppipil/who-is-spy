@@ -11,6 +11,7 @@ export function buildAgentContext(game: GameState, agent: Player): AgentContext 
     identity: {
       playerId: agent.id,
       name: agent.name,
+      strategyId: agent.strategyId!,
       role: agent.role,
       word: agent.word,
     },

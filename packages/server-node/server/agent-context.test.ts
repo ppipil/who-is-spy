@@ -24,6 +24,7 @@ describe('buildAgentContext', () => {
           name: '阿序',
           avatar: '序',
           isHuman: false,
+          strategyId: 'cautious',
           role: 'civilian',
           word: '当前玩家词',
           alive: true,
@@ -33,6 +34,7 @@ describe('buildAgentContext', () => {
           name: '弥生',
           avatar: '弥',
           isHuman: false,
+          strategyId: 'intuitive',
           role: 'civilian',
           word: '其他玩家词',
           alive: false,
@@ -61,6 +63,7 @@ describe('buildAgentContext', () => {
     expect(context.identity).toEqual({
       playerId: 'ai-1',
       name: '阿序',
+      strategyId: 'cautious',
       role: 'civilian',
       word: '当前玩家词',
     });

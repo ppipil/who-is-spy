@@ -1,11 +1,13 @@
 export type Role = 'civilian' | 'undercover';
 export type Phase = 'describing' | 'voting' | 'finished';
+export type AgentStrategyId = 'cautious' | 'intuitive' | 'analytical' | 'contrarian';
 
 export interface Player {
   id: string;
   name: string;
   avatar: string;
   isHuman: boolean;
+  strategyId?: AgentStrategyId;
   role: Role;
   word: string;
   alive: boolean;
@@ -85,6 +87,7 @@ export interface AgentContext {
   identity: {
     playerId: string;
     name: string;
+    strategyId: AgentStrategyId;
     role: Role;
     word: string;
   };

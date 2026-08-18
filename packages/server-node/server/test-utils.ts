@@ -12,7 +12,13 @@ export class FakeGameModel implements GameModel {
 
   async describe(context: AgentContext): Promise<string> {
     this.descriptionContexts.push(structuredClone(context));
-    return `它让我想到${context.identity.name}熟悉的日常场景`;
+    const descriptions = {
+      cautious: '平常不太显眼，却经常出现在熟悉的地方',
+      intuitive: '第一感觉带着鲜明氛围，让人很快产生联想',
+      analytical: '从用途和类别看，它有一组清楚的边界',
+      contrarian: '大家常说的特点之外，反而有个冷门场景',
+    };
+    return descriptions[context.identity.strategyId];
   }
 
   async vote(
@@ -21,10 +27,22 @@ export class FakeGameModel implements GameModel {
   ): Promise<{ targetId: string; reason: string }> {
     this.voteContexts.push(structuredClone(context));
     const human = allowedTargets.find((player) => player.isHuman);
-    const target = human ?? allowedTargets[0];
+    const targetIndex = {
+      cautious: 0,
+      intuitive: allowedTargets.length - 1,
+      analytical: Math.min(1, allowedTargets.length - 1),
+      contrarian: Math.max(0, allowedTargets.length - 2),
+    }[context.identity.strategyId];
+    const target = human ?? allowedTargets[targetIndex];
+    const reasons = {
+      cautious: '现有证据有限，但这位玩家的细节偏差最稳定',
+      intuitive: '这段表达的自然感与其他人有明显落差',
+      analytical: '其用途和类别线索与公开特征存在矛盾',
+      contrarian: '这段话过度贴合共识，像是在安全跟随',
+    };
     return {
       targetId: target.id,
-      reason: human ? '真人的描述与我的理解有细微偏差' : '这位玩家的措辞最可疑',
+      reason: reasons[context.identity.strategyId],
     };
   }
 

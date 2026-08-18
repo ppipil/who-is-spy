@@ -13,10 +13,10 @@ import type {
 import { chooseWordPair } from './words.js';
 
 const AI_PROFILES = [
-  { name: '阿序', avatar: '序', style: '谨慎观察' },
-  { name: '弥生', avatar: '弥', style: '直觉敏锐' },
-  { name: '老墨', avatar: '墨', style: '逻辑派' },
-  { name: '小满', avatar: '满', style: '出其不意' },
+  { name: '阿序', avatar: '序', strategyId: 'cautious' },
+  { name: '弥生', avatar: '弥', strategyId: 'intuitive' },
+  { name: '老墨', avatar: '墨', strategyId: 'analytical' },
+  { name: '小满', avatar: '满', strategyId: 'contrarian' },
 ] as const;
 
 export class GameRuleError extends Error {
@@ -42,7 +42,7 @@ export class GameEngine {
     const undercoverWord = pair[swapWords ? 0 : 1];
     const rawPlayers = [
       { name: '你', avatar: '你', isHuman: true },
-      ...AI_PROFILES.map(({ name, avatar }) => ({ name, avatar, isHuman: false })),
+      ...AI_PROFILES.map(({ name, avatar, strategyId }) => ({ name, avatar, strategyId, isHuman: false })),
     ];
     const players: Player[] = rawPlayers.map((profile, index) => {
       const role: Role = index === undercoverIndex ? 'undercover' : 'civilian';

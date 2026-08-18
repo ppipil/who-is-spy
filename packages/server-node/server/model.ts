@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { getAgentStrategy } from './agent-strategy.js';
 import type { AgentContext, GameReview, GameState, Player } from './types.js';
 
 const descriptionSchema = z.object({
@@ -59,6 +60,7 @@ export class DeepSeekClient implements GameModel {
   }
 
   async describe(context: AgentContext): Promise<string> {
+    const strategy = getAgentStrategy(context.identity.strategyId);
     const messages: ChatMessage[] = [
       {
         role: 'system',
@@ -69,6 +71,14 @@ export class DeepSeekClient implements GameModel {
         role: 'user',
         content: JSON.stringify({
           task: '为本轮给出一句公开描述。description 需为 2–60 个字符（约 28 个汉字以内），不能包含自己的词。',
+          strategy: {
+            id: strategy.id,
+            guidance: strategy.buildDescriptionGuidance({
+              role: context.identity.role,
+              round: context.game.round,
+              publicDescriptionCount: context.game.publicDescriptions.length,
+            }),
+          },
           context,
           output: { description: 'string', private_reasoning_summary: 'string' },
         }),
@@ -91,6 +101,7 @@ export class DeepSeekClient implements GameModel {
   }
 
   async vote(context: AgentContext, allowedTargets: Player[]): Promise<{ targetId: string; reason: string }> {
+    const strategy = getAgentStrategy(context.identity.strategyId);
     const targetIds = allowedTargets.map((player) => player.id);
     const messages: ChatMessage[] = [
       {
@@ -102,6 +113,14 @@ export class DeepSeekClient implements GameModel {
         role: 'user',
         content: JSON.stringify({
           task: '选择最可疑的一名玩家。',
+          strategy: {
+            id: strategy.id,
+            guidance: strategy.buildVoteGuidance({
+              role: context.identity.role,
+              round: context.game.round,
+              publicDescriptionCount: context.game.publicDescriptions.length,
+            }),
+          },
           context,
           allowedTargets: allowedTargets.map(({ id, name }) => ({ id, name })),
           output: { targetId: '必须来自 allowedTargets.id', reason: '不超过 36 个汉字' },
