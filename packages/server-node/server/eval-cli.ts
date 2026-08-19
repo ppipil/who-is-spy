@@ -1,4 +1,4 @@
-import { runEvaluation, type EvaluationModelKind, type EvaluationResult } from './evaluation.js';
+import { runEvaluation, type EvaluationCostConfig, type EvaluationModelKind, type EvaluationResult } from './evaluation.js';
 
 interface CliOptions {
   games: number;
@@ -6,6 +6,7 @@ interface CliOptions {
   model: EvaluationModelKind;
   commit?: string;
   runId?: string;
+  cost?: EvaluationCostConfig;
 }
 
 async function main(): Promise<void> {
@@ -16,6 +17,7 @@ async function main(): Promise<void> {
     modelKind: options.model,
     commit: options.commit,
     runId: options.runId,
+    cost: options.cost,
   });
   printHumanTable(result);
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
@@ -23,7 +25,7 @@ async function main(): Promise<void> {
 }
 
 function parseArguments(arguments_: string[]): CliOptions {
-  const options: CliOptions = { games: 20, seed: 42, model: 'fake' };
+  const options: CliOptions = { games: 20, seed: 42, model: 'fake', cost: costOptionsFromEnv() };
   for (let index = 0; index < arguments_.length; index += 1) {
     const argument = arguments_[index];
     const value = arguments_[index + 1];
@@ -42,11 +44,60 @@ function parseArguments(arguments_: string[]): CliOptions {
     } else if (argument === '--run-id' && value) {
       options.runId = value;
       index += 1;
+    } else if (argument === '--cost-model' && value) {
+      options.cost = { ...defaultCostOptions(), ...options.cost, model: value };
+      index += 1;
+    } else if (argument === '--cost-currency' && value) {
+      options.cost = { ...defaultCostOptions(), ...options.cost, currency: value };
+      index += 1;
+    } else if (argument === '--input-token-price-per-1m' && value) {
+      options.cost = { ...defaultCostOptions(), ...options.cost, inputTokenPricePer1M: Number(value) };
+      index += 1;
+    } else if (argument === '--output-token-price-per-1m' && value) {
+      options.cost = { ...defaultCostOptions(), ...options.cost, outputTokenPricePer1M: Number(value) };
+      index += 1;
+    } else if (argument === '--cost-source' && value) {
+      options.cost = { ...defaultCostOptions(), ...options.cost, source: value };
+      index += 1;
+    } else if (argument === '--cost-source-date' && value) {
+      options.cost = { ...defaultCostOptions(), ...options.cost, sourceDate: value };
+      index += 1;
     } else {
       throw new Error(`unknown or incomplete argument: ${argument}`);
     }
   }
   return options;
+}
+
+function costOptionsFromEnv(): EvaluationCostConfig | undefined {
+  if (
+    !process.env.EVALUATION_COST_CURRENCY ||
+    !process.env.EVALUATION_INPUT_TOKEN_PRICE_PER_1M ||
+    !process.env.EVALUATION_OUTPUT_TOKEN_PRICE_PER_1M ||
+    !process.env.EVALUATION_COST_SOURCE ||
+    !process.env.EVALUATION_COST_SOURCE_DATE
+  ) {
+    return undefined;
+  }
+  return {
+    model: process.env.EVALUATION_COST_MODEL ?? process.env.DEEPSEEK_MODEL ?? 'unknown',
+    currency: process.env.EVALUATION_COST_CURRENCY,
+    inputTokenPricePer1M: Number(process.env.EVALUATION_INPUT_TOKEN_PRICE_PER_1M),
+    outputTokenPricePer1M: Number(process.env.EVALUATION_OUTPUT_TOKEN_PRICE_PER_1M),
+    source: process.env.EVALUATION_COST_SOURCE,
+    sourceDate: process.env.EVALUATION_COST_SOURCE_DATE,
+  };
+}
+
+function defaultCostOptions(): EvaluationCostConfig {
+  return {
+    model: process.env.EVALUATION_COST_MODEL ?? process.env.DEEPSEEK_MODEL ?? 'unknown',
+    currency: process.env.EVALUATION_COST_CURRENCY ?? 'unavailable',
+    inputTokenPricePer1M: Number(process.env.EVALUATION_INPUT_TOKEN_PRICE_PER_1M ?? Number.NaN),
+    outputTokenPricePer1M: Number(process.env.EVALUATION_OUTPUT_TOKEN_PRICE_PER_1M ?? Number.NaN),
+    source: process.env.EVALUATION_COST_SOURCE ?? 'unavailable',
+    sourceDate: process.env.EVALUATION_COST_SOURCE_DATE ?? 'unavailable',
+  };
 }
 
 function printHumanTable(result: EvaluationResult): void {
@@ -64,7 +115,14 @@ function printHumanTable(result: EvaluationResult): void {
     ['duplicateRejectRate', formatRate(metrics.duplicateRejectRate)],
     ['retryRate', formatRate(metrics.retryRate)],
     ['latency p50/p95 ms', `${metrics.latencyMs.p50}/${metrics.latencyMs.p95}`],
-    ['tokens input/output/total', `${metrics.tokenUsage.input}/${metrics.tokenUsage.output}/${metrics.tokenUsage.total}`],
+    [
+      'tokens input/output/total',
+      `${metrics.tokenUsage.input}/${metrics.tokenUsage.output}/${metrics.tokenUsage.total} (${metrics.tokenUsage.source})`,
+    ],
+    ['avg tokens/game', `${metrics.tokenUsage.averagePerGame.input}/${metrics.tokenUsage.averagePerGame.output}/${metrics.tokenUsage.averagePerGame.total}`],
+    ['internal retries', String(metrics.internalRetryCount)],
+    ['retry-added tokens', String(metrics.retryAddedTokens)],
+    ['estimated cost', `${metrics.cost.totalCost} ${metrics.cost.currency} (${metrics.cost.source})`],
     ['descriptionHomogeneity', String(metrics.descriptionHomogeneity)],
     ['gate', result.gate.passed ? 'PASS' : `FAIL: ${result.gate.failures.join('; ')}`],
   ];
