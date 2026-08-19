@@ -85,7 +85,7 @@ describe('evaluation harness', () => {
     expect(first.metrics.completedGames).toBe(4);
     expect(first.metrics.completionRate).toBe(1);
     expect(first.metrics.validVoteRate).toBe(1);
-    expect(first.schemaVersion).toBe(3);
+    expect(first.schemaVersion).toBe(4);
     expect(first.run.gateSource).toBe('runEvaluation');
     expect(first.run.unavailable).toEqual({ tokenUsage: true, cost: true, internalProviderRetries: true });
     expect(first.metrics.safety.secretLeakOccurrences).toBe(0);
@@ -106,6 +106,11 @@ describe('evaluation harness', () => {
     expect(first.trace.modelCalls.filter((call) => call.task === 'describe')).toHaveLength(
       first.metrics.descriptionAttempts,
     );
+    const firstGameDescriptionCalls = first.trace.modelCalls.filter(
+      (call) => call.task === 'describe' && call.gameId === first.trace.games[0].gameId && call.round === 1,
+    );
+    expect(firstGameDescriptionCalls.map((call) => call.sameRoundPublicAiDescriptionCount)).toEqual([0, 1, 2, 3]);
+    expect(firstGameDescriptionCalls.map((call) => call.sameRoundHumanDescriptionPresent)).toEqual([true, true, true, true]);
     expect(first.trace.games).toHaveLength(4);
     expect(JSON.stringify(first.trace)).not.toContain('番茄');
     expect(JSON.stringify(first.trace)).not.toContain('西红柿');
