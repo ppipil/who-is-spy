@@ -1,0 +1,395 @@
+{
+  "schemaVersion": 5,
+  "run": {
+    "runId": "m6-final-seed-102-real",
+    "side": "final",
+    "commit": "49eb39da8be4f7f959a8afd642272046ca8637e9",
+    "startedAt": "2026-08-19T14:37:09.749Z",
+    "finishedAt": "2026-08-19T14:38:29.611Z",
+    "durationMs": 79861.9217,
+    "gateSource": "runEvaluation",
+    "scenario": {
+      "seed": 102,
+      "games": 1
+    },
+    "unavailable": {
+      "tokenUsage": false,
+      "cost": false,
+      "internalProviderRetries": false
+    }
+  },
+  "configuration": {
+    "games": 1,
+    "seed": 102,
+    "model": "real"
+  },
+  "metrics": {
+    "startedGames": 1,
+    "completedGames": 1,
+    "completionRate": 1,
+    "descriptionAttempts": 5,
+    "secretLeakRejectRate": 0.2,
+    "duplicateRejectRate": 0,
+    "invalidOutputRate": 0,
+    "validVoteRate": 1,
+    "qualityRepairCount": 1,
+    "retryRate": 0.2,
+    "latencyMs": {
+      "p50": 7060.9625,
+      "p95": 24484.4351
+    },
+    "tokenUsage": {
+      "input": 6218,
+      "output": 9545,
+      "total": 15763,
+      "averagePerGame": {
+        "input": 6218,
+        "output": 9545,
+        "total": 15763
+      },
+      "byTask": {
+        "describe": {
+          "input": 2366,
+          "output": 4171,
+          "total": 6537,
+          "retryAddedTokens": 0
+        },
+        "vote": {
+          "input": 2788,
+          "output": 4270,
+          "total": 7058,
+          "retryAddedTokens": 995
+        },
+        "review": {
+          "input": 1064,
+          "output": 1104,
+          "total": 2168,
+          "retryAddedTokens": 0
+        }
+      },
+      "source": "provider"
+    },
+    "internalRetryCount": 1,
+    "retryAddedTokens": 995,
+    "cost": {
+      "source": "configured",
+      "model": "deepseek-v4-flash",
+      "currency": "USD",
+      "inputTokenPricePer1M": 0.27,
+      "outputTokenPricePer1M": 1.1,
+      "priceSource": "DeepSeek deepseek-chat public pricing snapshot (estimate)",
+      "priceSourceDate": "2026-08-19",
+      "inputCost": 0.0017,
+      "outputCost": 0.0105,
+      "totalCost": 0.0122,
+      "averageCostPerGame": 0.0122,
+      "formula": "(inputTokens / 1,000,000 * inputTokenPricePer1M) + (outputTokens / 1,000,000 * outputTokenPricePer1M)"
+    },
+    "byStrategyId": {
+      "analytical": {
+        "games": 1,
+        "wins": 1,
+        "votes": 1,
+        "accurateVotes": 1,
+        "winRate": 1,
+        "voteAccuracy": 1
+      },
+      "cautious": {
+        "games": 1,
+        "wins": 1,
+        "votes": 1,
+        "accurateVotes": 1,
+        "winRate": 1,
+        "voteAccuracy": 1
+      },
+      "contrarian": {
+        "games": 1,
+        "wins": 1,
+        "votes": 1,
+        "accurateVotes": 1,
+        "winRate": 1,
+        "voteAccuracy": 1
+      },
+      "intuitive": {
+        "games": 1,
+        "wins": 0,
+        "votes": 1,
+        "accurateVotes": 0,
+        "winRate": 0,
+        "voteAccuracy": 0
+      }
+    },
+    "descriptionHomogeneity": 0.0128,
+    "safety": {
+      "secretLeakOccurrences": 0,
+      "publicStateLeakOccurrences": 0,
+      "illegalStateOccurrences": 0,
+      "descriptionExactSecretLeaks": 0,
+      "voteReasonSecretMentions": 3,
+      "reviewSecretMentions": 2,
+      "aliasOrSemanticExposure": 0
+    }
+  },
+  "trace": {
+    "games": [
+      {
+        "gameId": "4b32ecf1-8210-46cb-af14-e451417fec63",
+        "completed": true,
+        "winner": "civilian",
+        "timeline": [
+          {
+            "order": 1,
+            "round": 1,
+            "type": "description",
+            "actorId": "human",
+            "text": "第1轮我想到一种常见体验"
+          },
+          {
+            "order": 2,
+            "round": 1,
+            "type": "description",
+            "actorId": "ai-1",
+            "text": "用来观察远处物体的工具"
+          },
+          {
+            "order": 3,
+            "round": 1,
+            "type": "description",
+            "actorId": "ai-2",
+            "text": "按下按钮的瞬间，画面就被永久留住了。"
+          },
+          {
+            "order": 4,
+            "round": 1,
+            "type": "description",
+            "actorId": "ai-3",
+            "text": "透过它，远山近在咫尺。"
+          },
+          {
+            "order": 5,
+            "round": 1,
+            "type": "description",
+            "actorId": "ai-4",
+            "text": "它留不住画面，只能活在当下"
+          },
+          {
+            "order": 6,
+            "round": 1,
+            "type": "vote",
+            "actorId": "human",
+            "targetId": "ai-1",
+            "reason": "我认为 阿序 的描述最可疑"
+          },
+          {
+            "order": 7,
+            "round": 1,
+            "type": "vote",
+            "actorId": "ai-1",
+            "targetId": "ai-2",
+            "reason": "弥生描述像[OTHER_SECRET]，与[SELF_SECRET]不符。"
+          },
+          {
+            "order": 8,
+            "round": 1,
+            "type": "vote",
+            "actorId": "ai-2",
+            "targetId": "human",
+            "reason": "你的描述最模糊，可能是卧底在掩盖身份。"
+          },
+          {
+            "order": 9,
+            "round": 1,
+            "type": "vote",
+            "actorId": "ai-3",
+            "targetId": "ai-2",
+            "reason": "描述像[OTHER_SECRET]而非[SELF_SECRET]，矛盾明显"
+          },
+          {
+            "order": 10,
+            "round": 1,
+            "type": "vote",
+            "actorId": "ai-4",
+            "targetId": "ai-2",
+            "reason": "描述像[OTHER_SECRET]，与[SELF_SECRET]共识明显不符，很可疑。"
+          },
+          {
+            "order": 11,
+            "round": 1,
+            "type": "elimination",
+            "actorId": "ai-2",
+            "text": "弥生 被投出局。身份将在终局揭晓。"
+          },
+          {
+            "order": 12,
+            "round": 1,
+            "type": "review",
+            "actorId": "review",
+            "text": "第一轮卧底弥生描述暴露[SECRET]特征，随即被平民集体投出，平民速胜 本局为5人局，平民词为“[SECRET]”，卧底词为“[SECRET]”。第一轮描述中，弥生以“按下按钮的瞬间，画面就被永久留住了”直接指向[SECRET]，与其余玩家描述的[SECRET]特征（观察远处、无法留影）形成鲜明对比。阿序、老墨、小满均准确指认弥生，仅“你”误投阿序，但不影响结果。卧底弥生试图以“描述模糊”反向攻击“你”来转移视线，但未获响应。最终弥生以3票出局（阿序、老墨、小满各1票），平民胜利。 弥生第一轮描述中出现“按下按钮”“永久留住”，强烈暗示[SECRET]，与[SECRET]核心特征（仅观察、不留存）冲突，成为全场焦点。 阿序率先公开具名指认弥生，称“描述像[SECRET]，与[SECRET]不符”，建立了投票方向。 老墨和小满随后跟进，使弥生迅速形成3票，平民在首轮即锁定胜局。"
+          }
+        ],
+        "leakSummary": {
+          "descriptionExactSecretLeaks": 0,
+          "voteReasonSecretMentions": 3,
+          "reviewSecretMentions": 2,
+          "aliasOrSemanticExposure": 0
+        }
+      }
+    ],
+    "modelCalls": [
+      {
+        "runId": "m6-final-seed-102-real",
+        "gameId": "4b32ecf1-8210-46cb-af14-e451417fec63",
+        "round": 1,
+        "agentId": "ai-1",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 4394.2366,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 0,
+        "sameRoundHumanDescriptionPresent": true
+      },
+      {
+        "runId": "m6-final-seed-102-real",
+        "gameId": "4b32ecf1-8210-46cb-af14-e451417fec63",
+        "round": 1,
+        "agentId": "ai-2",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 1390.6647,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 1,
+        "sameRoundHumanDescriptionPresent": true
+      },
+      {
+        "runId": "m6-final-seed-102-real",
+        "gameId": "4b32ecf1-8210-46cb-af14-e451417fec63",
+        "round": 1,
+        "agentId": "ai-3",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 7060.9625,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 2,
+        "sameRoundHumanDescriptionPresent": true
+      },
+      {
+        "runId": "m6-final-seed-102-real",
+        "gameId": "4b32ecf1-8210-46cb-af14-e451417fec63",
+        "round": 1,
+        "agentId": "ai-3",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 10537.6913,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 2,
+        "sameRoundHumanDescriptionPresent": true
+      },
+      {
+        "runId": "m6-final-seed-102-real",
+        "gameId": "4b32ecf1-8210-46cb-af14-e451417fec63",
+        "round": 1,
+        "agentId": "ai-4",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 20885.0112,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 3,
+        "sameRoundHumanDescriptionPresent": true
+      },
+      {
+        "runId": "m6-final-seed-102-real",
+        "gameId": "4b32ecf1-8210-46cb-af14-e451417fec63",
+        "round": 1,
+        "agentId": "ai-3",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 2572.5927,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-final-seed-102-real",
+        "gameId": "4b32ecf1-8210-46cb-af14-e451417fec63",
+        "round": 1,
+        "agentId": "ai-1",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 7038.134,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-final-seed-102-real",
+        "gameId": "4b32ecf1-8210-46cb-af14-e451417fec63",
+        "round": 1,
+        "agentId": "ai-4",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 10236.2338,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-final-seed-102-real",
+        "gameId": "4b32ecf1-8210-46cb-af14-e451417fec63",
+        "round": 1,
+        "agentId": "ai-2",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 24484.4351,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-final-seed-102-real",
+        "gameId": "4b32ecf1-8210-46cb-af14-e451417fec63",
+        "round": 1,
+        "agentId": "review",
+        "task": "review",
+        "attempt": 1,
+        "latencyMs": 11106.4459,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      }
+    ]
+  },
+  "gate": {
+    "passed": true,
+    "failures": []
+  }
+}

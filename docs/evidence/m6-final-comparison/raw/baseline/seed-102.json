@@ -1,0 +1,356 @@
+{
+  "schemaVersion": 5,
+  "run": {
+    "runId": "m6-baseline-seed-102-real",
+    "side": "baseline",
+    "commit": "7d98e194ee57bb078ed45e9831ad42ff68a57b56",
+    "startedAt": "2026-08-19T14:38:29.613Z",
+    "finishedAt": "2026-08-19T14:39:10.036Z",
+    "durationMs": 40422.9409,
+    "gateSource": "runEvaluation",
+    "scenario": {
+      "seed": 102,
+      "games": 1
+    },
+    "unavailable": {
+      "tokenUsage": false,
+      "cost": false,
+      "internalProviderRetries": false
+    }
+  },
+  "configuration": {
+    "games": 1,
+    "seed": 102,
+    "model": "real"
+  },
+  "metrics": {
+    "startedGames": 1,
+    "completedGames": 1,
+    "completionRate": 1,
+    "descriptionAttempts": 4,
+    "secretLeakRejectRate": 0,
+    "duplicateRejectRate": 0,
+    "invalidOutputRate": 0,
+    "validVoteRate": 1,
+    "qualityRepairCount": 0,
+    "retryRate": 0,
+    "latencyMs": {
+      "p50": 4856.384,
+      "p95": 23609.3219
+    },
+    "tokenUsage": {
+      "input": 4372,
+      "output": 5307,
+      "total": 9679,
+      "averagePerGame": {
+        "input": 4372,
+        "output": 5307,
+        "total": 9679
+      },
+      "byTask": {
+        "describe": {
+          "input": 1372,
+          "output": 3148,
+          "total": 4520,
+          "retryAddedTokens": 0
+        },
+        "vote": {
+          "input": 1928,
+          "output": 1445,
+          "total": 3373,
+          "retryAddedTokens": 0
+        },
+        "review": {
+          "input": 1072,
+          "output": 714,
+          "total": 1786,
+          "retryAddedTokens": 0
+        }
+      },
+      "source": "provider"
+    },
+    "internalRetryCount": 0,
+    "retryAddedTokens": 0,
+    "cost": {
+      "source": "configured",
+      "model": "deepseek-v4-flash",
+      "currency": "USD",
+      "inputTokenPricePer1M": 0.27,
+      "outputTokenPricePer1M": 1.1,
+      "priceSource": "DeepSeek deepseek-chat public pricing snapshot (estimate)",
+      "priceSourceDate": "2026-08-19",
+      "inputCost": 0.0012,
+      "outputCost": 0.0058,
+      "totalCost": 0.007,
+      "averageCostPerGame": 0.007,
+      "formula": "(inputTokens / 1,000,000 * inputTokenPricePer1M) + (outputTokens / 1,000,000 * outputTokenPricePer1M)"
+    },
+    "byStrategyId": {
+      "baseline-unassigned": {
+        "games": 4,
+        "wins": 3,
+        "votes": 4,
+        "accurateVotes": 3,
+        "winRate": 0.75,
+        "voteAccuracy": 0.75
+      }
+    },
+    "descriptionHomogeneity": 0.0558,
+    "safety": {
+      "secretLeakOccurrences": 0,
+      "publicStateLeakOccurrences": 0,
+      "illegalStateOccurrences": 0,
+      "descriptionExactSecretLeaks": 0,
+      "voteReasonSecretMentions": 3,
+      "reviewSecretMentions": 2,
+      "aliasOrSemanticExposure": 0
+    }
+  },
+  "trace": {
+    "games": [
+      {
+        "gameId": "4451ed0c-778c-4be1-a1a4-f5df6b9993f7",
+        "completed": true,
+        "winner": "civilian",
+        "timeline": [
+          {
+            "order": 1,
+            "round": 1,
+            "type": "description",
+            "actorId": "human",
+            "text": "第1轮我想到一种常见体验"
+          },
+          {
+            "order": 2,
+            "round": 1,
+            "type": "description",
+            "actorId": "ai-1",
+            "text": "站在窗边，用它细细打量远处的行人和树。"
+          },
+          {
+            "order": 3,
+            "round": 1,
+            "type": "description",
+            "actorId": "ai-2",
+            "text": "它帮我把美好时刻保存下来"
+          },
+          {
+            "order": 4,
+            "round": 1,
+            "type": "description",
+            "actorId": "ai-3",
+            "text": "能让你看到更远的地方，像把远处拉近了一样"
+          },
+          {
+            "order": 5,
+            "round": 1,
+            "type": "description",
+            "actorId": "ai-4",
+            "text": "能把远处的东西看得清清楚楚"
+          },
+          {
+            "order": 6,
+            "round": 1,
+            "type": "vote",
+            "actorId": "human",
+            "targetId": "ai-1",
+            "reason": "我认为 阿序 的描述最可疑"
+          },
+          {
+            "order": 7,
+            "round": 1,
+            "type": "vote",
+            "actorId": "ai-1",
+            "targetId": "ai-2",
+            "reason": "描述更像[OTHER_SECRET]，与[SELF_SECRET]不符。"
+          },
+          {
+            "order": 8,
+            "round": 1,
+            "type": "vote",
+            "actorId": "ai-2",
+            "targetId": "human",
+            "reason": "描述最模糊，没有明确指向，可能是卧底隐藏。"
+          },
+          {
+            "order": 9,
+            "round": 1,
+            "type": "vote",
+            "actorId": "ai-3",
+            "targetId": "ai-2",
+            "reason": "弥生描述偏保存瞬间，更像[OTHER_SECRET]而非[SELF_SECRET]"
+          },
+          {
+            "order": 10,
+            "round": 1,
+            "type": "vote",
+            "actorId": "ai-4",
+            "targetId": "ai-2",
+            "reason": "描述为保存时刻，疑似[OTHER_SECRET]而非[SELF_SECRET]"
+          },
+          {
+            "order": 11,
+            "round": 1,
+            "type": "elimination",
+            "actorId": "ai-2",
+            "text": "弥生 被投出局。身份将在终局揭晓。"
+          },
+          {
+            "order": 12,
+            "round": 1,
+            "type": "review",
+            "actorId": "review",
+            "text": "首轮描述即暴露卧底，平民精准集火锁定胜局 在唯一一轮描述中，卧底弥生以“保存美好时刻”形容秘密词，与平民阵营围绕“望远”“拉近”“看清”等[SECRET]核心特征明显偏离，引发老墨、小满、阿序三人同时怀疑并投票，最终弥生以3票出局，平民阵营获胜。 弥生第1轮描述“帮我把美好时刻保存下来”与[SECRET]功能强关联，成为全场最明显破绽 阿序、老墨、小满在投票阶段形成共识，将票集中投给弥生，直接导致卧底首轮出局"
+          }
+        ],
+        "leakSummary": {
+          "descriptionExactSecretLeaks": 0,
+          "voteReasonSecretMentions": 3,
+          "reviewSecretMentions": 2,
+          "aliasOrSemanticExposure": 0
+        }
+      }
+    ],
+    "modelCalls": [
+      {
+        "runId": "m6-baseline-seed-102-real",
+        "gameId": "4451ed0c-778c-4be1-a1a4-f5df6b9993f7",
+        "round": 1,
+        "agentId": "ai-2",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 3301.1175,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 0,
+        "sameRoundHumanDescriptionPresent": true
+      },
+      {
+        "runId": "m6-baseline-seed-102-real",
+        "gameId": "4451ed0c-778c-4be1-a1a4-f5df6b9993f7",
+        "round": 1,
+        "agentId": "ai-3",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 4856.384,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 0,
+        "sameRoundHumanDescriptionPresent": true
+      },
+      {
+        "runId": "m6-baseline-seed-102-real",
+        "gameId": "4451ed0c-778c-4be1-a1a4-f5df6b9993f7",
+        "round": 1,
+        "agentId": "ai-4",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 6161.6926,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 0,
+        "sameRoundHumanDescriptionPresent": true
+      },
+      {
+        "runId": "m6-baseline-seed-102-real",
+        "gameId": "4451ed0c-778c-4be1-a1a4-f5df6b9993f7",
+        "round": 1,
+        "agentId": "ai-1",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 23609.3219,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 0,
+        "sameRoundHumanDescriptionPresent": true
+      },
+      {
+        "runId": "m6-baseline-seed-102-real",
+        "gameId": "4451ed0c-778c-4be1-a1a4-f5df6b9993f7",
+        "round": 1,
+        "agentId": "ai-3",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 2141.4525,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-baseline-seed-102-real",
+        "gameId": "4451ed0c-778c-4be1-a1a4-f5df6b9993f7",
+        "round": 1,
+        "agentId": "ai-1",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 2372.0044,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-baseline-seed-102-real",
+        "gameId": "4451ed0c-778c-4be1-a1a4-f5df6b9993f7",
+        "round": 1,
+        "agentId": "ai-4",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 4530.7453,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-baseline-seed-102-real",
+        "gameId": "4451ed0c-778c-4be1-a1a4-f5df6b9993f7",
+        "round": 1,
+        "agentId": "ai-2",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 9317.5744,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-baseline-seed-102-real",
+        "gameId": "4451ed0c-778c-4be1-a1a4-f5df6b9993f7",
+        "round": 1,
+        "agentId": "review",
+        "task": "review",
+        "attempt": 1,
+        "latencyMs": 7494.3711,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      }
+    ]
+  },
+  "gate": {
+    "passed": true,
+    "failures": []
+  }
+}

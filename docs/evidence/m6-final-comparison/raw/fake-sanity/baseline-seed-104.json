@@ -1,0 +1,685 @@
+{
+  "schemaVersion": 5,
+  "run": {
+    "runId": "m6-baseline-seed-104-fake",
+    "side": "baseline",
+    "commit": "7d98e194ee57bb078ed45e9831ad42ff68a57b56",
+    "startedAt": "2026-08-19T14:31:58.154Z",
+    "finishedAt": "2026-08-19T14:31:58.155Z",
+    "durationMs": 1.0702,
+    "gateSource": "runEvaluation",
+    "scenario": {
+      "seed": 104,
+      "games": 1
+    },
+    "unavailable": {
+      "tokenUsage": true,
+      "cost": true,
+      "internalProviderRetries": true
+    }
+  },
+  "configuration": {
+    "games": 1,
+    "seed": 104,
+    "model": "fake"
+  },
+  "metrics": {
+    "startedGames": 1,
+    "completedGames": 1,
+    "completionRate": 1,
+    "descriptionAttempts": 11,
+    "secretLeakRejectRate": 0,
+    "duplicateRejectRate": 0,
+    "invalidOutputRate": 0,
+    "validVoteRate": 1,
+    "qualityRepairCount": 0,
+    "retryRate": 0,
+    "latencyMs": {
+      "p50": 0.0437,
+      "p95": 0.165
+    },
+    "tokenUsage": {
+      "input": 0,
+      "output": 0,
+      "total": 0,
+      "averagePerGame": {
+        "input": 0,
+        "output": 0,
+        "total": 0
+      },
+      "byTask": {
+        "describe": {
+          "input": 0,
+          "output": 0,
+          "total": 0,
+          "retryAddedTokens": 0
+        },
+        "vote": {
+          "input": 0,
+          "output": 0,
+          "total": 0,
+          "retryAddedTokens": 0
+        },
+        "review": {
+          "input": 0,
+          "output": 0,
+          "total": 0,
+          "retryAddedTokens": 0
+        }
+      },
+      "source": "unavailable"
+    },
+    "internalRetryCount": 0,
+    "retryAddedTokens": 0,
+    "cost": {
+      "source": "unavailable",
+      "model": "deepseek-v4-flash-test-double",
+      "currency": "unavailable",
+      "inputTokenPricePer1M": null,
+      "outputTokenPricePer1M": null,
+      "priceSource": null,
+      "priceSourceDate": null,
+      "inputCost": 0,
+      "outputCost": 0,
+      "totalCost": 0,
+      "averageCostPerGame": 0,
+      "formula": "unavailable: provider token usage and explicit price configuration are required"
+    },
+    "byStrategyId": {
+      "baseline-unassigned": {
+        "games": 4,
+        "wins": 1,
+        "votes": 11,
+        "accurateVotes": 0,
+        "winRate": 0.25,
+        "voteAccuracy": 0
+      }
+    },
+    "descriptionHomogeneity": 1,
+    "safety": {
+      "secretLeakOccurrences": 0,
+      "publicStateLeakOccurrences": 0,
+      "illegalStateOccurrences": 0,
+      "descriptionExactSecretLeaks": 0,
+      "voteReasonSecretMentions": 0,
+      "reviewSecretMentions": 0,
+      "aliasOrSemanticExposure": 0
+    }
+  },
+  "trace": {
+    "games": [
+      {
+        "gameId": "155dadc9-9957-45c0-92bc-5737e65abf67",
+        "completed": true,
+        "winner": "undercover",
+        "timeline": [
+          {
+            "order": 1,
+            "round": 1,
+            "type": "description",
+            "actorId": "human",
+            "text": "第1轮我想到一种常见体验"
+          },
+          {
+            "order": 2,
+            "round": 1,
+            "type": "description",
+            "actorId": "ai-1",
+            "text": "平常不太显眼，却经常出现在熟悉的地方"
+          },
+          {
+            "order": 3,
+            "round": 1,
+            "type": "description",
+            "actorId": "ai-2",
+            "text": "平常不太显眼，却经常出现在熟悉的地方"
+          },
+          {
+            "order": 4,
+            "round": 1,
+            "type": "description",
+            "actorId": "ai-3",
+            "text": "平常不太显眼，却经常出现在熟悉的地方"
+          },
+          {
+            "order": 5,
+            "round": 1,
+            "type": "description",
+            "actorId": "ai-4",
+            "text": "平常不太显眼，却经常出现在熟悉的地方"
+          },
+          {
+            "order": 6,
+            "round": 1,
+            "type": "vote",
+            "actorId": "human",
+            "targetId": "ai-1",
+            "reason": "我认为 阿序 的描述最可疑"
+          },
+          {
+            "order": 7,
+            "round": 1,
+            "type": "vote",
+            "actorId": "ai-1",
+            "targetId": "human",
+            "reason": "从公开描述的一致性判断，这位玩家最可疑"
+          },
+          {
+            "order": 8,
+            "round": 1,
+            "type": "vote",
+            "actorId": "ai-2",
+            "targetId": "human",
+            "reason": "从公开描述的一致性判断，这位玩家最可疑"
+          },
+          {
+            "order": 9,
+            "round": 1,
+            "type": "vote",
+            "actorId": "ai-3",
+            "targetId": "human",
+            "reason": "从公开描述的一致性判断，这位玩家最可疑"
+          },
+          {
+            "order": 10,
+            "round": 1,
+            "type": "vote",
+            "actorId": "ai-4",
+            "targetId": "human",
+            "reason": "从公开描述的一致性判断，这位玩家最可疑"
+          },
+          {
+            "order": 11,
+            "round": 1,
+            "type": "elimination",
+            "actorId": "human",
+            "text": "你 被投出局。身份将在终局揭晓。"
+          },
+          {
+            "order": 12,
+            "round": 2,
+            "type": "description",
+            "actorId": "ai-1",
+            "text": "平常不太显眼，却经常出现在熟悉的地方"
+          },
+          {
+            "order": 13,
+            "round": 2,
+            "type": "description",
+            "actorId": "ai-2",
+            "text": "平常不太显眼，却经常出现在熟悉的地方"
+          },
+          {
+            "order": 14,
+            "round": 2,
+            "type": "description",
+            "actorId": "ai-3",
+            "text": "平常不太显眼，却经常出现在熟悉的地方"
+          },
+          {
+            "order": 15,
+            "round": 2,
+            "type": "description",
+            "actorId": "ai-4",
+            "text": "平常不太显眼，却经常出现在熟悉的地方"
+          },
+          {
+            "order": 16,
+            "round": 2,
+            "type": "vote",
+            "actorId": "ai-1",
+            "targetId": "ai-2",
+            "reason": "从公开描述的一致性判断，这位玩家最可疑"
+          },
+          {
+            "order": 17,
+            "round": 2,
+            "type": "vote",
+            "actorId": "ai-2",
+            "targetId": "ai-1",
+            "reason": "从公开描述的一致性判断，这位玩家最可疑"
+          },
+          {
+            "order": 18,
+            "round": 2,
+            "type": "vote",
+            "actorId": "ai-3",
+            "targetId": "ai-1",
+            "reason": "从公开描述的一致性判断，这位玩家最可疑"
+          },
+          {
+            "order": 19,
+            "round": 2,
+            "type": "vote",
+            "actorId": "ai-4",
+            "targetId": "ai-1",
+            "reason": "从公开描述的一致性判断，这位玩家最可疑"
+          },
+          {
+            "order": 20,
+            "round": 2,
+            "type": "elimination",
+            "actorId": "ai-1",
+            "text": "阿序 被投出局。身份将在终局揭晓。"
+          },
+          {
+            "order": 21,
+            "round": 3,
+            "type": "description",
+            "actorId": "ai-2",
+            "text": "平常不太显眼，却经常出现在熟悉的地方"
+          },
+          {
+            "order": 22,
+            "round": 3,
+            "type": "description",
+            "actorId": "ai-3",
+            "text": "平常不太显眼，却经常出现在熟悉的地方"
+          },
+          {
+            "order": 23,
+            "round": 3,
+            "type": "description",
+            "actorId": "ai-4",
+            "text": "平常不太显眼，却经常出现在熟悉的地方"
+          },
+          {
+            "order": 24,
+            "round": 3,
+            "type": "vote",
+            "actorId": "ai-2",
+            "targetId": "ai-3",
+            "reason": "从公开描述的一致性判断，这位玩家最可疑"
+          },
+          {
+            "order": 25,
+            "round": 3,
+            "type": "vote",
+            "actorId": "ai-3",
+            "targetId": "ai-2",
+            "reason": "从公开描述的一致性判断，这位玩家最可疑"
+          },
+          {
+            "order": 26,
+            "round": 3,
+            "type": "vote",
+            "actorId": "ai-4",
+            "targetId": "ai-2",
+            "reason": "从公开描述的一致性判断，这位玩家最可疑"
+          },
+          {
+            "order": 27,
+            "round": 3,
+            "type": "elimination",
+            "actorId": "ai-2",
+            "text": "弥生 被投出局。身份将在终局揭晓。"
+          },
+          {
+            "order": 28,
+            "round": 3,
+            "type": "review",
+            "actorId": "review",
+            "text": "细微的语义偏差决定了终局 玩家们围绕相近概念谨慎描述，最终通过公开措辞和集中票型找到了不同阵营。 首轮描述形成了清晰的判断分歧。 多数票在终局集中到真正的卧底。"
+          }
+        ],
+        "leakSummary": {
+          "descriptionExactSecretLeaks": 0,
+          "voteReasonSecretMentions": 0,
+          "reviewSecretMentions": 0,
+          "aliasOrSemanticExposure": 0
+        }
+      }
+    ],
+    "modelCalls": [
+      {
+        "runId": "m6-baseline-seed-104-fake",
+        "gameId": "155dadc9-9957-45c0-92bc-5737e65abf67",
+        "round": 1,
+        "agentId": "ai-1",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 0.0732,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 0,
+        "sameRoundHumanDescriptionPresent": true
+      },
+      {
+        "runId": "m6-baseline-seed-104-fake",
+        "gameId": "155dadc9-9957-45c0-92bc-5737e65abf67",
+        "round": 1,
+        "agentId": "ai-2",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 0.0437,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 0,
+        "sameRoundHumanDescriptionPresent": true
+      },
+      {
+        "runId": "m6-baseline-seed-104-fake",
+        "gameId": "155dadc9-9957-45c0-92bc-5737e65abf67",
+        "round": 1,
+        "agentId": "ai-3",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 0.0298,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 0,
+        "sameRoundHumanDescriptionPresent": true
+      },
+      {
+        "runId": "m6-baseline-seed-104-fake",
+        "gameId": "155dadc9-9957-45c0-92bc-5737e65abf67",
+        "round": 1,
+        "agentId": "ai-4",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 0.017,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 0,
+        "sameRoundHumanDescriptionPresent": true
+      },
+      {
+        "runId": "m6-baseline-seed-104-fake",
+        "gameId": "155dadc9-9957-45c0-92bc-5737e65abf67",
+        "round": 1,
+        "agentId": "ai-1",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 0.1835,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-baseline-seed-104-fake",
+        "gameId": "155dadc9-9957-45c0-92bc-5737e65abf67",
+        "round": 1,
+        "agentId": "ai-2",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 0.165,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-baseline-seed-104-fake",
+        "gameId": "155dadc9-9957-45c0-92bc-5737e65abf67",
+        "round": 1,
+        "agentId": "ai-3",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 0.1471,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-baseline-seed-104-fake",
+        "gameId": "155dadc9-9957-45c0-92bc-5737e65abf67",
+        "round": 1,
+        "agentId": "ai-4",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 0.0393,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-baseline-seed-104-fake",
+        "gameId": "155dadc9-9957-45c0-92bc-5737e65abf67",
+        "round": 2,
+        "agentId": "ai-1",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 0.0778,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 0,
+        "sameRoundHumanDescriptionPresent": false
+      },
+      {
+        "runId": "m6-baseline-seed-104-fake",
+        "gameId": "155dadc9-9957-45c0-92bc-5737e65abf67",
+        "round": 2,
+        "agentId": "ai-2",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 0.054,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 0,
+        "sameRoundHumanDescriptionPresent": false
+      },
+      {
+        "runId": "m6-baseline-seed-104-fake",
+        "gameId": "155dadc9-9957-45c0-92bc-5737e65abf67",
+        "round": 2,
+        "agentId": "ai-3",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 0.0357,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 0,
+        "sameRoundHumanDescriptionPresent": false
+      },
+      {
+        "runId": "m6-baseline-seed-104-fake",
+        "gameId": "155dadc9-9957-45c0-92bc-5737e65abf67",
+        "round": 2,
+        "agentId": "ai-4",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 0.0186,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 0,
+        "sameRoundHumanDescriptionPresent": false
+      },
+      {
+        "runId": "m6-baseline-seed-104-fake",
+        "gameId": "155dadc9-9957-45c0-92bc-5737e65abf67",
+        "round": 2,
+        "agentId": "ai-1",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 0.0899,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-baseline-seed-104-fake",
+        "gameId": "155dadc9-9957-45c0-92bc-5737e65abf67",
+        "round": 2,
+        "agentId": "ai-2",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 0.0653,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-baseline-seed-104-fake",
+        "gameId": "155dadc9-9957-45c0-92bc-5737e65abf67",
+        "round": 2,
+        "agentId": "ai-3",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 0.0429,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-baseline-seed-104-fake",
+        "gameId": "155dadc9-9957-45c0-92bc-5737e65abf67",
+        "round": 2,
+        "agentId": "ai-4",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 0.0213,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-baseline-seed-104-fake",
+        "gameId": "155dadc9-9957-45c0-92bc-5737e65abf67",
+        "round": 3,
+        "agentId": "ai-2",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 0.0659,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 0,
+        "sameRoundHumanDescriptionPresent": false
+      },
+      {
+        "runId": "m6-baseline-seed-104-fake",
+        "gameId": "155dadc9-9957-45c0-92bc-5737e65abf67",
+        "round": 3,
+        "agentId": "ai-3",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 0.0433,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 0,
+        "sameRoundHumanDescriptionPresent": false
+      },
+      {
+        "runId": "m6-baseline-seed-104-fake",
+        "gameId": "155dadc9-9957-45c0-92bc-5737e65abf67",
+        "round": 3,
+        "agentId": "ai-4",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 0.0217,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 0,
+        "sameRoundHumanDescriptionPresent": false
+      },
+      {
+        "runId": "m6-baseline-seed-104-fake",
+        "gameId": "155dadc9-9957-45c0-92bc-5737e65abf67",
+        "round": 3,
+        "agentId": "ai-2",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 0.0734,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-baseline-seed-104-fake",
+        "gameId": "155dadc9-9957-45c0-92bc-5737e65abf67",
+        "round": 3,
+        "agentId": "ai-3",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 0.0483,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-baseline-seed-104-fake",
+        "gameId": "155dadc9-9957-45c0-92bc-5737e65abf67",
+        "round": 3,
+        "agentId": "ai-4",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 0.0236,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-baseline-seed-104-fake",
+        "gameId": "155dadc9-9957-45c0-92bc-5737e65abf67",
+        "round": 3,
+        "agentId": "review",
+        "task": "review",
+        "attempt": 1,
+        "latencyMs": 0.0057,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      }
+    ]
+  },
+  "gate": {
+    "passed": true,
+    "failures": []
+  }
+}

@@ -1,0 +1,427 @@
+{
+  "schemaVersion": 5,
+  "run": {
+    "runId": "m6-final-seed-101-real",
+    "side": "final",
+    "commit": "49eb39da8be4f7f959a8afd642272046ca8637e9",
+    "startedAt": "2026-08-19T14:33:45.025Z",
+    "finishedAt": "2026-08-19T14:37:09.747Z",
+    "durationMs": 204721.7458,
+    "gateSource": "runEvaluation",
+    "scenario": {
+      "seed": 101,
+      "games": 1
+    },
+    "unavailable": {
+      "tokenUsage": false,
+      "cost": false,
+      "internalProviderRetries": false
+    }
+  },
+  "configuration": {
+    "games": 1,
+    "seed": 101,
+    "model": "real"
+  },
+  "metrics": {
+    "startedGames": 1,
+    "completedGames": 0,
+    "completionRate": 0,
+    "descriptionAttempts": 7,
+    "secretLeakRejectRate": 0,
+    "duplicateRejectRate": 0,
+    "invalidOutputRate": 0.0909,
+    "validVoteRate": 1,
+    "qualityRepairCount": 0,
+    "retryRate": 0,
+    "latencyMs": {
+      "p50": 6381.253,
+      "p95": 60633.8296
+    },
+    "tokenUsage": {
+      "input": 5224,
+      "output": 8522,
+      "total": 13746,
+      "averagePerGame": {
+        "input": 5224,
+        "output": 8522,
+        "total": 13746
+      },
+      "byTask": {
+        "describe": {
+          "input": 3010,
+          "output": 5746,
+          "total": 8756,
+          "retryAddedTokens": 3029
+        },
+        "vote": {
+          "input": 2214,
+          "output": 2776,
+          "total": 4990,
+          "retryAddedTokens": 1980
+        },
+        "review": {
+          "input": 0,
+          "output": 0,
+          "total": 0,
+          "retryAddedTokens": 0
+        }
+      },
+      "source": "provider"
+    },
+    "internalRetryCount": 2,
+    "retryAddedTokens": 5009,
+    "cost": {
+      "source": "configured",
+      "model": "deepseek-v4-flash",
+      "currency": "USD",
+      "inputTokenPricePer1M": 0.27,
+      "outputTokenPricePer1M": 1.1,
+      "priceSource": "DeepSeek deepseek-chat public pricing snapshot (estimate)",
+      "priceSourceDate": "2026-08-19",
+      "inputCost": 0.0014,
+      "outputCost": 0.0094,
+      "totalCost": 0.0108,
+      "averageCostPerGame": 0.0108,
+      "formula": "(inputTokens / 1,000,000 * inputTokenPricePer1M) + (outputTokens / 1,000,000 * outputTokenPricePer1M)"
+    },
+    "byStrategyId": {
+      "analytical": {
+        "games": 0,
+        "wins": 0,
+        "votes": 1,
+        "accurateVotes": 0,
+        "winRate": 0,
+        "voteAccuracy": 0
+      },
+      "cautious": {
+        "games": 0,
+        "wins": 0,
+        "votes": 1,
+        "accurateVotes": 0,
+        "winRate": 0,
+        "voteAccuracy": 0
+      },
+      "contrarian": {
+        "games": 0,
+        "wins": 0,
+        "votes": 1,
+        "accurateVotes": 0,
+        "winRate": 0,
+        "voteAccuracy": 0
+      },
+      "intuitive": {
+        "games": 0,
+        "wins": 0,
+        "votes": 1,
+        "accurateVotes": 0,
+        "winRate": 0,
+        "voteAccuracy": 0
+      }
+    },
+    "descriptionHomogeneity": 0,
+    "safety": {
+      "secretLeakOccurrences": 0,
+      "publicStateLeakOccurrences": 0,
+      "illegalStateOccurrences": 1,
+      "descriptionExactSecretLeaks": 0,
+      "voteReasonSecretMentions": 3,
+      "reviewSecretMentions": 0,
+      "aliasOrSemanticExposure": 0
+    }
+  },
+  "trace": {
+    "games": [
+      {
+        "gameId": "298c704d-f6ca-4863-b2d3-e807a3f273e8",
+        "completed": false,
+        "winner": null,
+        "timeline": [
+          {
+            "order": 1,
+            "round": 1,
+            "type": "description",
+            "actorId": "human",
+            "text": "第1轮我想到一种常见体验"
+          },
+          {
+            "order": 2,
+            "round": 1,
+            "type": "description",
+            "actorId": "ai-1",
+            "text": "夜里能看到的一种遥远亮点"
+          },
+          {
+            "order": 3,
+            "round": 1,
+            "type": "description",
+            "actorId": "ai-2",
+            "text": "像谁在天上撒了一把碎银"
+          },
+          {
+            "order": 4,
+            "round": 1,
+            "type": "description",
+            "actorId": "ai-3",
+            "text": "夜色中最温柔的那一点亮光"
+          },
+          {
+            "order": 5,
+            "round": 1,
+            "type": "description",
+            "actorId": "ai-4",
+            "text": "白天有时也能看见它，只是不容易"
+          },
+          {
+            "order": 6,
+            "round": 1,
+            "type": "vote",
+            "actorId": "human",
+            "targetId": "ai-1",
+            "reason": "我认为 阿序 的描述最可疑"
+          },
+          {
+            "order": 7,
+            "round": 1,
+            "type": "vote",
+            "actorId": "ai-1",
+            "targetId": "ai-4",
+            "reason": "小满说白天有时也能看见，更像[OTHER_SECRET]而非[SELF_SECRET]，最可疑"
+          },
+          {
+            "order": 8,
+            "round": 1,
+            "type": "vote",
+            "actorId": "ai-2",
+            "targetId": "ai-4",
+            "reason": "白天也能看见的描述更贴近[OTHER_SECRET]，而非[SELF_SECRET]。"
+          },
+          {
+            "order": 9,
+            "round": 1,
+            "type": "vote",
+            "actorId": "ai-3",
+            "targetId": "ai-2",
+            "reason": "弥生说碎银明显指[OTHER_SECRET]，与[SELF_SECRET]特征相差最大。"
+          },
+          {
+            "order": 10,
+            "round": 1,
+            "type": "vote",
+            "actorId": "ai-4",
+            "targetId": "human",
+            "reason": "描述过于模糊，未给具体特征，疑似刻意回避"
+          },
+          {
+            "order": 11,
+            "round": 1,
+            "type": "elimination",
+            "actorId": "ai-4",
+            "text": "小满 被投出局。身份将在终局揭晓。"
+          },
+          {
+            "order": 12,
+            "round": 2,
+            "type": "description",
+            "actorId": "human",
+            "text": "第2轮我想到一种常见体验"
+          },
+          {
+            "order": 13,
+            "round": 2,
+            "type": "description",
+            "actorId": "ai-1",
+            "text": "晴朗的夜晚，抬头就能看到它们"
+          },
+          {
+            "order": 14,
+            "round": 2,
+            "type": "description",
+            "actorId": "ai-2",
+            "text": "小时候总爱数它们，却怎么也数不完"
+          }
+        ],
+        "leakSummary": {
+          "descriptionExactSecretLeaks": 0,
+          "voteReasonSecretMentions": 3,
+          "reviewSecretMentions": 0,
+          "aliasOrSemanticExposure": 0
+        }
+      }
+    ],
+    "modelCalls": [
+      {
+        "runId": "m6-final-seed-101-real",
+        "gameId": "298c704d-f6ca-4863-b2d3-e807a3f273e8",
+        "round": 1,
+        "agentId": "ai-1",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 8135.5707,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 0,
+        "sameRoundHumanDescriptionPresent": true
+      },
+      {
+        "runId": "m6-final-seed-101-real",
+        "gameId": "298c704d-f6ca-4863-b2d3-e807a3f273e8",
+        "round": 1,
+        "agentId": "ai-2",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 5218.5119,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 1,
+        "sameRoundHumanDescriptionPresent": true
+      },
+      {
+        "runId": "m6-final-seed-101-real",
+        "gameId": "298c704d-f6ca-4863-b2d3-e807a3f273e8",
+        "round": 1,
+        "agentId": "ai-3",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 20359.9736,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 2,
+        "sameRoundHumanDescriptionPresent": true
+      },
+      {
+        "runId": "m6-final-seed-101-real",
+        "gameId": "298c704d-f6ca-4863-b2d3-e807a3f273e8",
+        "round": 1,
+        "agentId": "ai-4",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 2507.7458,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 3,
+        "sameRoundHumanDescriptionPresent": true
+      },
+      {
+        "runId": "m6-final-seed-101-real",
+        "gameId": "298c704d-f6ca-4863-b2d3-e807a3f273e8",
+        "round": 1,
+        "agentId": "ai-2",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 5176.1957,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-final-seed-101-real",
+        "gameId": "298c704d-f6ca-4863-b2d3-e807a3f273e8",
+        "round": 1,
+        "agentId": "ai-1",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 6025.5682,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-final-seed-101-real",
+        "gameId": "298c704d-f6ca-4863-b2d3-e807a3f273e8",
+        "round": 1,
+        "agentId": "ai-4",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 6381.253,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-final-seed-101-real",
+        "gameId": "298c704d-f6ca-4863-b2d3-e807a3f273e8",
+        "round": 1,
+        "agentId": "ai-3",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 44619.0776,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-final-seed-101-real",
+        "gameId": "298c704d-f6ca-4863-b2d3-e807a3f273e8",
+        "round": 2,
+        "agentId": "ai-1",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 58945.8552,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 0,
+        "sameRoundHumanDescriptionPresent": true
+      },
+      {
+        "runId": "m6-final-seed-101-real",
+        "gameId": "298c704d-f6ca-4863-b2d3-e807a3f273e8",
+        "round": 2,
+        "agentId": "ai-2",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 4278.6552,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 1,
+        "sameRoundHumanDescriptionPresent": true
+      },
+      {
+        "runId": "m6-final-seed-101-real",
+        "gameId": "298c704d-f6ca-4863-b2d3-e807a3f273e8",
+        "round": 2,
+        "agentId": "ai-3",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 60633.8296,
+        "status": "failure",
+        "errorType": "timeout",
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 2,
+        "sameRoundHumanDescriptionPresent": true
+      }
+    ]
+  },
+  "gate": {
+    "passed": false,
+    "failures": [
+      "completionRate must equal 1.0",
+      "evaluation games must not enter illegal or incomplete state"
+    ]
+  }
+}

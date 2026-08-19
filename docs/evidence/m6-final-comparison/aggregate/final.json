@@ -1,0 +1,133 @@
+{
+  "side": "final",
+  "games": 5,
+  "completionRate": 0.8,
+  "validVoteRate": 1,
+  "invalidOutputRate": 0.0182,
+  "descriptionExactSecretLeaks": 0,
+  "descriptionHomogeneity": 0.0107,
+  "latencyMs": {
+    "p50": 10236.2338,
+    "p95": 58342.955
+  },
+  "totalTokens": 136256,
+  "tokensPerGame": 27251.2,
+  "totalCost": 0.1073,
+  "costPerGame": 0.0215,
+  "providerRetryCount": 11,
+  "qualityRepairCount": 1,
+  "gateFailures": [
+    {
+      "seed": 101,
+      "failures": [
+        "completionRate must equal 1.0",
+        "evaluation games must not enter illegal or incomplete state"
+      ]
+    }
+  ],
+  "bySeed": [
+    {
+      "seed": 101,
+      "completionRate": 0,
+      "validVoteRate": 1,
+      "invalidOutputRate": 0.0909,
+      "descriptionExactSecretLeaks": 0,
+      "descriptionHomogeneity": 0,
+      "latencyMs": {
+        "p50": 6381.253,
+        "p95": 60633.8296
+      },
+      "tokensTotal": 13746,
+      "cost": 0.0108,
+      "providerRetryCount": 2,
+      "qualityRepairCount": 0,
+      "gate": {
+        "passed": false,
+        "failures": [
+          "completionRate must equal 1.0",
+          "evaluation games must not enter illegal or incomplete state"
+        ]
+      }
+    },
+    {
+      "seed": 102,
+      "completionRate": 1,
+      "validVoteRate": 1,
+      "invalidOutputRate": 0,
+      "descriptionExactSecretLeaks": 0,
+      "descriptionHomogeneity": 0.0128,
+      "latencyMs": {
+        "p50": 7060.9625,
+        "p95": 24484.4351
+      },
+      "tokensTotal": 15763,
+      "cost": 0.0122,
+      "providerRetryCount": 1,
+      "qualityRepairCount": 1,
+      "gate": {
+        "passed": true,
+        "failures": []
+      }
+    },
+    {
+      "seed": 103,
+      "completionRate": 1,
+      "validVoteRate": 1,
+      "invalidOutputRate": 0,
+      "descriptionExactSecretLeaks": 0,
+      "descriptionHomogeneity": 0.0088,
+      "latencyMs": {
+        "p50": 6749.7352,
+        "p95": 24959.4664
+      },
+      "tokensTotal": 18927,
+      "cost": 0.0143,
+      "providerRetryCount": 0,
+      "qualityRepairCount": 0,
+      "gate": {
+        "passed": true,
+        "failures": []
+      }
+    },
+    {
+      "seed": 104,
+      "completionRate": 1,
+      "validVoteRate": 1,
+      "invalidOutputRate": 0,
+      "descriptionExactSecretLeaks": 0,
+      "descriptionHomogeneity": 0.0139,
+      "latencyMs": {
+        "p50": 7672.6836,
+        "p95": 39595.1532
+      },
+      "tokensTotal": 26588,
+      "cost": 0.0198,
+      "providerRetryCount": 1,
+      "qualityRepairCount": 0,
+      "gate": {
+        "passed": true,
+        "failures": []
+      }
+    },
+    {
+      "seed": 105,
+      "completionRate": 1,
+      "validVoteRate": 1,
+      "invalidOutputRate": 0,
+      "descriptionExactSecretLeaks": 0,
+      "descriptionHomogeneity": 0.0178,
+      "latencyMs": {
+        "p50": 17759.255,
+        "p95": 58342.955
+      },
+      "tokensTotal": 61232,
+      "cost": 0.0502,
+      "providerRetryCount": 7,
+      "qualityRepairCount": 0,
+      "gate": {
+        "passed": true,
+        "failures": []
+      }
+    }
+  ]
+}

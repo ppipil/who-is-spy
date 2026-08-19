@@ -1,0 +1,784 @@
+{
+  "schemaVersion": 5,
+  "run": {
+    "runId": "m6-final-seed-105-real",
+    "side": "final",
+    "commit": "49eb39da8be4f7f959a8afd642272046ca8637e9",
+    "startedAt": "2026-08-19T14:49:36.621Z",
+    "finishedAt": "2026-08-19T14:56:49.927Z",
+    "durationMs": 433305.4995,
+    "gateSource": "runEvaluation",
+    "scenario": {
+      "seed": 105,
+      "games": 1
+    },
+    "unavailable": {
+      "tokenUsage": false,
+      "cost": false,
+      "internalProviderRetries": false
+    }
+  },
+  "configuration": {
+    "games": 1,
+    "seed": 105,
+    "model": "real"
+  },
+  "metrics": {
+    "startedGames": 1,
+    "completedGames": 1,
+    "completionRate": 1,
+    "descriptionAttempts": 11,
+    "secretLeakRejectRate": 0,
+    "duplicateRejectRate": 0,
+    "invalidOutputRate": 0,
+    "validVoteRate": 1,
+    "qualityRepairCount": 0,
+    "retryRate": 0,
+    "latencyMs": {
+      "p50": 17759.255,
+      "p95": 58342.955
+    },
+    "tokenUsage": {
+      "input": 20653,
+      "output": 40579,
+      "total": 61232,
+      "averagePerGame": {
+        "input": 20653,
+        "output": 40579,
+        "total": 61232
+      },
+      "byTask": {
+        "describe": {
+          "input": 7870,
+          "output": 13321,
+          "total": 21191,
+          "retryAddedTokens": 5938
+        },
+        "vote": {
+          "input": 10210,
+          "output": 23917,
+          "total": 34127,
+          "retryAddedTokens": 7304
+        },
+        "review": {
+          "input": 2573,
+          "output": 3341,
+          "total": 5914,
+          "retryAddedTokens": 5914
+        }
+      },
+      "source": "provider"
+    },
+    "internalRetryCount": 7,
+    "retryAddedTokens": 19156,
+    "cost": {
+      "source": "configured",
+      "model": "deepseek-v4-flash",
+      "currency": "USD",
+      "inputTokenPricePer1M": 0.27,
+      "outputTokenPricePer1M": 1.1,
+      "priceSource": "DeepSeek deepseek-chat public pricing snapshot (estimate)",
+      "priceSourceDate": "2026-08-19",
+      "inputCost": 0.0056,
+      "outputCost": 0.0446,
+      "totalCost": 0.0502,
+      "averageCostPerGame": 0.0502,
+      "formula": "(inputTokens / 1,000,000 * inputTokenPricePer1M) + (outputTokens / 1,000,000 * outputTokenPricePer1M)"
+    },
+    "byStrategyId": {
+      "analytical": {
+        "games": 1,
+        "wins": 1,
+        "votes": 2,
+        "accurateVotes": 1,
+        "winRate": 1,
+        "voteAccuracy": 0.5
+      },
+      "cautious": {
+        "games": 1,
+        "wins": 0,
+        "votes": 4,
+        "accurateVotes": 0,
+        "winRate": 0,
+        "voteAccuracy": 0
+      },
+      "contrarian": {
+        "games": 1,
+        "wins": 1,
+        "votes": 4,
+        "accurateVotes": 2,
+        "winRate": 1,
+        "voteAccuracy": 0.5
+      },
+      "intuitive": {
+        "games": 1,
+        "wins": 1,
+        "votes": 4,
+        "accurateVotes": 1,
+        "winRate": 1,
+        "voteAccuracy": 0.25
+      }
+    },
+    "descriptionHomogeneity": 0.0178,
+    "safety": {
+      "secretLeakOccurrences": 0,
+      "publicStateLeakOccurrences": 0,
+      "illegalStateOccurrences": 0,
+      "descriptionExactSecretLeaks": 0,
+      "voteReasonSecretMentions": 5,
+      "reviewSecretMentions": 1,
+      "aliasOrSemanticExposure": 0
+    }
+  },
+  "trace": {
+    "games": [
+      {
+        "gameId": "b868bb32-ecf8-4107-86c1-3e13bf8e7f55",
+        "completed": true,
+        "winner": "civilian",
+        "timeline": [
+          {
+            "order": 1,
+            "round": 1,
+            "type": "description",
+            "actorId": "human",
+            "text": "第1轮我想到一种常见体验"
+          },
+          {
+            "order": 2,
+            "round": 1,
+            "type": "description",
+            "actorId": "ai-1",
+            "text": "它离我们很远，但一眼就能看到。"
+          },
+          {
+            "order": 3,
+            "round": 1,
+            "type": "description",
+            "actorId": "ai-2",
+            "text": "夏夜里抬头看到的一闪一闪的小光点。"
+          },
+          {
+            "order": 4,
+            "round": 1,
+            "type": "description",
+            "actorId": "ai-3",
+            "text": "它们看似微小，却可能比太阳还要庞大。"
+          },
+          {
+            "order": 5,
+            "round": 1,
+            "type": "description",
+            "actorId": "ai-4",
+            "text": "它们其实有不同的颜色，有的偏红，有的偏蓝。"
+          },
+          {
+            "order": 6,
+            "round": 1,
+            "type": "vote",
+            "actorId": "human",
+            "targetId": "ai-1",
+            "reason": "我认为 阿序 的描述最可疑"
+          },
+          {
+            "order": 7,
+            "round": 1,
+            "type": "vote",
+            "actorId": "ai-1",
+            "targetId": "ai-2",
+            "reason": "弥生的描述最具体，明确指向一闪一闪的[OTHER_SECRET]，与[SELF_SECRET]不符。"
+          },
+          {
+            "order": 8,
+            "round": 1,
+            "type": "vote",
+            "actorId": "ai-2",
+            "targetId": "human",
+            "reason": "你的描述过于空泛，没有给出任何具体特征，像是没有词可以描述。"
+          },
+          {
+            "order": 9,
+            "round": 1,
+            "type": "vote",
+            "actorId": "ai-3",
+            "targetId": "human",
+            "reason": "描述过于笼统，未触及词语核心特征"
+          },
+          {
+            "order": 10,
+            "round": 1,
+            "type": "vote",
+            "actorId": "ai-4",
+            "targetId": "human",
+            "reason": "描述太模糊，可能是卧底在避免暴露。"
+          },
+          {
+            "order": 11,
+            "round": 1,
+            "type": "elimination",
+            "actorId": "human",
+            "text": "你 被投出局。身份将在终局揭晓。"
+          },
+          {
+            "order": 12,
+            "round": 2,
+            "type": "description",
+            "actorId": "ai-1",
+            "text": "夜空中亮暗不一的众多光点里，总有一些特别醒目。"
+          },
+          {
+            "order": 13,
+            "round": 2,
+            "type": "description",
+            "actorId": "ai-2",
+            "text": "有时望着夜空，会对着最亮的那一颗轻轻许一个愿。"
+          },
+          {
+            "order": 14,
+            "round": 2,
+            "type": "description",
+            "actorId": "ai-3",
+            "text": "有的亮点是自己发光发热的，有的只是靠反射别人的光才被我们看到。"
+          },
+          {
+            "order": 15,
+            "round": 2,
+            "type": "description",
+            "actorId": "ai-4",
+            "text": "它们看似静止，可一整夜过后位置会悄悄移动，因为其实是我们在动。"
+          },
+          {
+            "order": 16,
+            "round": 2,
+            "type": "vote",
+            "actorId": "ai-1",
+            "targetId": "ai-3",
+            "reason": "描述偏重天文细节，显得刻意，像在掩饰身份。"
+          },
+          {
+            "order": 17,
+            "round": 2,
+            "type": "vote",
+            "actorId": "ai-2",
+            "targetId": "ai-3",
+            "reason": "老墨说‘反射别人的光’，不像描述[SELF_SECRET]，可疑。"
+          },
+          {
+            "order": 18,
+            "round": 2,
+            "type": "vote",
+            "actorId": "ai-3",
+            "targetId": "ai-1",
+            "reason": "阿序首轮用“它”单数指代，不像描述众多[SELF_SECRET]，更像指单一物体。"
+          },
+          {
+            "order": 19,
+            "round": 2,
+            "type": "vote",
+            "actorId": "ai-4",
+            "targetId": "ai-2",
+            "reason": "弥生描述过于经典，像在刻意迎合[SELF_SECRET]特征。"
+          },
+          {
+            "order": 20,
+            "round": 2,
+            "type": "elimination",
+            "actorId": "ai-3",
+            "text": "老墨 被投出局。身份将在终局揭晓。"
+          },
+          {
+            "order": 21,
+            "round": 3,
+            "type": "description",
+            "actorId": "ai-1",
+            "text": "它常被写进诗里，也出现在歌谣中，寄托着许多人的心事。"
+          },
+          {
+            "order": 22,
+            "round": 3,
+            "type": "description",
+            "actorId": "ai-2",
+            "text": "野外露营的夜里，抬头看见整片天都洒满了光点，安静得能听见心跳。"
+          },
+          {
+            "order": 23,
+            "round": 3,
+            "type": "description",
+            "actorId": "ai-4",
+            "text": "其实它们一直被用作路标，帮迷途的人找到方向。"
+          },
+          {
+            "order": 24,
+            "round": 3,
+            "type": "vote",
+            "actorId": "ai-1",
+            "targetId": "ai-2",
+            "reason": "弥生对'一闪一闪'的强调过于具体，像是刻意贴合描述。"
+          },
+          {
+            "order": 25,
+            "round": 3,
+            "type": "vote",
+            "actorId": "ai-2",
+            "targetId": "ai-4",
+            "reason": "描述过于理性，路标说法牵强，疑似伪装。"
+          },
+          {
+            "order": 26,
+            "round": 3,
+            "type": "vote",
+            "actorId": "ai-4",
+            "targetId": "ai-1",
+            "reason": "阿序描述过于笼统，多用情感化表达，缺少[SELF_SECRET]的具体特征，刻意回避细节。"
+          },
+          {
+            "order": 27,
+            "round": 3,
+            "type": "vote",
+            "actorId": "ai-1",
+            "targetId": "ai-2",
+            "reason": "弥生的许愿说法像在对流星，与平民主题略有偏差。"
+          },
+          {
+            "order": 28,
+            "round": 3,
+            "type": "vote",
+            "actorId": "ai-2",
+            "targetId": "ai-1",
+            "reason": "阿序单复数切换不自然，描述偏文艺，像在绕开具体细节。"
+          },
+          {
+            "order": 29,
+            "round": 3,
+            "type": "vote",
+            "actorId": "ai-4",
+            "targetId": "ai-1",
+            "reason": "阿序描述偏通用，未提闪烁特征，更像卧底。"
+          },
+          {
+            "order": 30,
+            "round": 3,
+            "type": "vote_result",
+            "text": "弥生、小满、阿序 同票，进入最终加票。"
+          },
+          {
+            "order": 31,
+            "round": 3,
+            "type": "elimination",
+            "actorId": "ai-1",
+            "text": "阿序 被投出局。身份将在终局揭晓。"
+          },
+          {
+            "order": 32,
+            "round": 3,
+            "type": "review",
+            "actorId": "review",
+            "text": "首轮误投平民，卧底潜伏两轮，终在加票中落败 游戏中，平民玩家‘你’因首轮描述过于空泛，被集体误投出局。卧底阿序以单数‘它’的措辞一度露出马脚，但第二轮及时转向群体描述，并借势淘汰老墨。第三轮，阿序再次出现单数化表述并偏离[SECRET]常见特征，引发弥生和小满的坚决怀疑，最终在加票环节以2票被投出，平民获胜。 第一轮‘你’因描述模糊被多人集中投票，早早出局，但这也让卧底阿序暂时安全。 第二轮老墨指出阿序首轮用单数‘它’指代的可疑点，但其自身描述更显刻意，导致老墨被反投出局，失去一次揪出卧底的机会。 第三轮阿序在描述中再度使用单数‘它’，且偏向‘诗、歌谣、心事’等意象，与[SECRET]的‘闪烁’‘夜空’等核心特征不符，导致弥生和小满在加票中联合将其投出。"
+          }
+        ],
+        "leakSummary": {
+          "descriptionExactSecretLeaks": 0,
+          "voteReasonSecretMentions": 5,
+          "reviewSecretMentions": 1,
+          "aliasOrSemanticExposure": 0
+        }
+      }
+    ],
+    "modelCalls": [
+      {
+        "runId": "m6-final-seed-105-real",
+        "gameId": "b868bb32-ecf8-4107-86c1-3e13bf8e7f55",
+        "round": 1,
+        "agentId": "ai-1",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 17759.255,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 0,
+        "sameRoundHumanDescriptionPresent": true
+      },
+      {
+        "runId": "m6-final-seed-105-real",
+        "gameId": "b868bb32-ecf8-4107-86c1-3e13bf8e7f55",
+        "round": 1,
+        "agentId": "ai-2",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 2061.0192,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 1,
+        "sameRoundHumanDescriptionPresent": true
+      },
+      {
+        "runId": "m6-final-seed-105-real",
+        "gameId": "b868bb32-ecf8-4107-86c1-3e13bf8e7f55",
+        "round": 1,
+        "agentId": "ai-3",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 19138.4006,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 2,
+        "sameRoundHumanDescriptionPresent": true
+      },
+      {
+        "runId": "m6-final-seed-105-real",
+        "gameId": "b868bb32-ecf8-4107-86c1-3e13bf8e7f55",
+        "round": 1,
+        "agentId": "ai-4",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 24436.58,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 3,
+        "sameRoundHumanDescriptionPresent": true
+      },
+      {
+        "runId": "m6-final-seed-105-real",
+        "gameId": "b868bb32-ecf8-4107-86c1-3e13bf8e7f55",
+        "round": 1,
+        "agentId": "ai-3",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 6080.6078,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-final-seed-105-real",
+        "gameId": "b868bb32-ecf8-4107-86c1-3e13bf8e7f55",
+        "round": 1,
+        "agentId": "ai-2",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 9401.8906,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-final-seed-105-real",
+        "gameId": "b868bb32-ecf8-4107-86c1-3e13bf8e7f55",
+        "round": 1,
+        "agentId": "ai-1",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 10135.5719,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-final-seed-105-real",
+        "gameId": "b868bb32-ecf8-4107-86c1-3e13bf8e7f55",
+        "round": 1,
+        "agentId": "ai-4",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 12641.1818,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-final-seed-105-real",
+        "gameId": "b868bb32-ecf8-4107-86c1-3e13bf8e7f55",
+        "round": 2,
+        "agentId": "ai-1",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 51152.8282,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 0,
+        "sameRoundHumanDescriptionPresent": false
+      },
+      {
+        "runId": "m6-final-seed-105-real",
+        "gameId": "b868bb32-ecf8-4107-86c1-3e13bf8e7f55",
+        "round": 2,
+        "agentId": "ai-2",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 10531.7518,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 1,
+        "sameRoundHumanDescriptionPresent": false
+      },
+      {
+        "runId": "m6-final-seed-105-real",
+        "gameId": "b868bb32-ecf8-4107-86c1-3e13bf8e7f55",
+        "round": 2,
+        "agentId": "ai-3",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 10518.065,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 2,
+        "sameRoundHumanDescriptionPresent": false
+      },
+      {
+        "runId": "m6-final-seed-105-real",
+        "gameId": "b868bb32-ecf8-4107-86c1-3e13bf8e7f55",
+        "round": 2,
+        "agentId": "ai-4",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 39798.1867,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 3,
+        "sameRoundHumanDescriptionPresent": false
+      },
+      {
+        "runId": "m6-final-seed-105-real",
+        "gameId": "b868bb32-ecf8-4107-86c1-3e13bf8e7f55",
+        "round": 2,
+        "agentId": "ai-1",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 11094.1583,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-final-seed-105-real",
+        "gameId": "b868bb32-ecf8-4107-86c1-3e13bf8e7f55",
+        "round": 2,
+        "agentId": "ai-2",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 11223.7225,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-final-seed-105-real",
+        "gameId": "b868bb32-ecf8-4107-86c1-3e13bf8e7f55",
+        "round": 2,
+        "agentId": "ai-3",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 20895.4431,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-final-seed-105-real",
+        "gameId": "b868bb32-ecf8-4107-86c1-3e13bf8e7f55",
+        "round": 2,
+        "agentId": "ai-4",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 27836.9112,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-final-seed-105-real",
+        "gameId": "b868bb32-ecf8-4107-86c1-3e13bf8e7f55",
+        "round": 3,
+        "agentId": "ai-1",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 10161.1927,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 0,
+        "sameRoundHumanDescriptionPresent": false
+      },
+      {
+        "runId": "m6-final-seed-105-real",
+        "gameId": "b868bb32-ecf8-4107-86c1-3e13bf8e7f55",
+        "round": 3,
+        "agentId": "ai-2",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 24956.1241,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 1,
+        "sameRoundHumanDescriptionPresent": false
+      },
+      {
+        "runId": "m6-final-seed-105-real",
+        "gameId": "b868bb32-ecf8-4107-86c1-3e13bf8e7f55",
+        "round": 3,
+        "agentId": "ai-4",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 6338.6235,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 2,
+        "sameRoundHumanDescriptionPresent": false
+      },
+      {
+        "runId": "m6-final-seed-105-real",
+        "gameId": "b868bb32-ecf8-4107-86c1-3e13bf8e7f55",
+        "round": 3,
+        "agentId": "ai-4",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 24758.3931,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-final-seed-105-real",
+        "gameId": "b868bb32-ecf8-4107-86c1-3e13bf8e7f55",
+        "round": 3,
+        "agentId": "ai-2",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 25108.4642,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-final-seed-105-real",
+        "gameId": "b868bb32-ecf8-4107-86c1-3e13bf8e7f55",
+        "round": 3,
+        "agentId": "ai-1",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 60270.3528,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-final-seed-105-real",
+        "gameId": "b868bb32-ecf8-4107-86c1-3e13bf8e7f55",
+        "round": 3,
+        "agentId": "ai-4",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 10336.0055,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-final-seed-105-real",
+        "gameId": "b868bb32-ecf8-4107-86c1-3e13bf8e7f55",
+        "round": 3,
+        "agentId": "ai-1",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 17983.662,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-final-seed-105-real",
+        "gameId": "b868bb32-ecf8-4107-86c1-3e13bf8e7f55",
+        "round": 3,
+        "agentId": "ai-2",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 58342.955,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m6-final-seed-105-real",
+        "gameId": "b868bb32-ecf8-4107-86c1-3e13bf8e7f55",
+        "round": 3,
+        "agentId": "review",
+        "task": "review",
+        "attempt": 1,
+        "latencyMs": 57357.3583,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      }
+    ]
+  },
+  "gate": {
+    "passed": true,
+    "failures": []
+  }
+}

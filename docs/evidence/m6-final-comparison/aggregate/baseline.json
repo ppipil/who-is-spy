@@ -1,0 +1,122 @@
+{
+  "side": "baseline",
+  "games": 5,
+  "completionRate": 1,
+  "validVoteRate": 1,
+  "invalidOutputRate": 0,
+  "descriptionExactSecretLeaks": 0,
+  "descriptionHomogeneity": 0.064,
+  "latencyMs": {
+    "p50": 6079.0278,
+    "p95": 36629.7186
+  },
+  "totalTokens": 108828,
+  "tokensPerGame": 21765.6,
+  "totalCost": 0.0808,
+  "costPerGame": 0.0162,
+  "providerRetryCount": 6,
+  "qualityRepairCount": 0,
+  "gateFailures": [],
+  "bySeed": [
+    {
+      "seed": 101,
+      "completionRate": 1,
+      "validVoteRate": 1,
+      "invalidOutputRate": 0,
+      "descriptionExactSecretLeaks": 0,
+      "descriptionHomogeneity": 0.0636,
+      "latencyMs": {
+        "p50": 7467.2125,
+        "p95": 33511.0089
+      },
+      "tokensTotal": 23160,
+      "cost": 0.0175,
+      "providerRetryCount": 0,
+      "qualityRepairCount": 0,
+      "gate": {
+        "passed": true,
+        "failures": []
+      }
+    },
+    {
+      "seed": 102,
+      "completionRate": 1,
+      "validVoteRate": 1,
+      "invalidOutputRate": 0,
+      "descriptionExactSecretLeaks": 0,
+      "descriptionHomogeneity": 0.0558,
+      "latencyMs": {
+        "p50": 4856.384,
+        "p95": 23609.3219
+      },
+      "tokensTotal": 9679,
+      "cost": 0.007,
+      "providerRetryCount": 0,
+      "qualityRepairCount": 0,
+      "gate": {
+        "passed": true,
+        "failures": []
+      }
+    },
+    {
+      "seed": 103,
+      "completionRate": 1,
+      "validVoteRate": 1,
+      "invalidOutputRate": 0,
+      "descriptionExactSecretLeaks": 0,
+      "descriptionHomogeneity": 0.0636,
+      "latencyMs": {
+        "p50": 7661.0175,
+        "p95": 40891.1872
+      },
+      "tokensTotal": 35110,
+      "cost": 0.0268,
+      "providerRetryCount": 3,
+      "qualityRepairCount": 0,
+      "gate": {
+        "passed": true,
+        "failures": []
+      }
+    },
+    {
+      "seed": 104,
+      "completionRate": 1,
+      "validVoteRate": 1,
+      "invalidOutputRate": 0,
+      "descriptionExactSecretLeaks": 0,
+      "descriptionHomogeneity": 0.0603,
+      "latencyMs": {
+        "p50": 9750.1146,
+        "p95": 40507.9283
+      },
+      "tokensTotal": 22937,
+      "cost": 0.0173,
+      "providerRetryCount": 2,
+      "qualityRepairCount": 0,
+      "gate": {
+        "passed": true,
+        "failures": []
+      }
+    },
+    {
+      "seed": 105,
+      "completionRate": 1,
+      "validVoteRate": 1,
+      "invalidOutputRate": 0,
+      "descriptionExactSecretLeaks": 0,
+      "descriptionHomogeneity": 0.0769,
+      "latencyMs": {
+        "p50": 3856.5441,
+        "p95": 50555.3745
+      },
+      "tokensTotal": 17942,
+      "cost": 0.0122,
+      "providerRetryCount": 1,
+      "qualityRepairCount": 0,
+      "gate": {
+        "passed": true,
+        "failures": []
+      }
+    }
+  ]
+}

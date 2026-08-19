@@ -1,0 +1,601 @@
+{
+  "methodology": {
+    "seeds": [
+      101,
+      102,
+      103,
+      104,
+      105
+    ],
+    "gamesPerSeedPerSide": 1,
+    "mode": "real",
+    "sideOrder": "alternating per seed (baseline/final then final/baseline)",
+    "baselineCommit": "7d98e194ee57bb078ed45e9831ad42ff68a57b56",
+    "finalCommit": "49eb39da8be4f7f959a8afd642272046ca8637e9",
+    "sameModelConfig": true,
+    "sameEvaluator": "packages/server-node/server/evaluation.ts (schema v5)",
+    "sameWordSetup": true,
+    "wordSetupCheck": [
+      {
+        "seed": 101,
+        "matched": true,
+        "hash": "07a578c5e5983a773fe576da6c5df28ad1f260b7f8d5acefa03684f22accfde0"
+      },
+      {
+        "seed": 102,
+        "matched": true,
+        "hash": "ef2e5c6bbd88f5b5a0fb2950af368f074bd104c0c89b14a1b1eb0cbaf4aeabfb"
+      },
+      {
+        "seed": 103,
+        "matched": true,
+        "hash": "c68b1a88ec1caa22c2e7fff6605a934f916278fe699c1e993555bb98840edb80"
+      },
+      {
+        "seed": 104,
+        "matched": true,
+        "hash": "d2ac962cc8c21bc63f2da0f20f5b46a74eb743a408ed1da7de80df81af9de063"
+      },
+      {
+        "seed": 105,
+        "matched": true,
+        "hash": "94a8f8b5c613cd333aa3fa02786865238655ed586bbc8b6208c6c98dd5d6b054"
+      }
+    ]
+  },
+  "pairedBySeed": [
+    {
+      "seed": 101,
+      "baseline": {
+        "seed": 101,
+        "completionRate": 1,
+        "validVoteRate": 1,
+        "invalidOutputRate": 0,
+        "descriptionExactSecretLeaks": 0,
+        "descriptionHomogeneity": 0.0636,
+        "latencyMs": {
+          "p50": 7467.2125,
+          "p95": 33511.0089
+        },
+        "tokensTotal": 23160,
+        "cost": 0.0175,
+        "providerRetryCount": 0,
+        "qualityRepairCount": 0,
+        "gate": {
+          "passed": true,
+          "failures": []
+        }
+      },
+      "final": {
+        "seed": 101,
+        "completionRate": 0,
+        "validVoteRate": 1,
+        "invalidOutputRate": 0.0909,
+        "descriptionExactSecretLeaks": 0,
+        "descriptionHomogeneity": 0,
+        "latencyMs": {
+          "p50": 6381.253,
+          "p95": 60633.8296
+        },
+        "tokensTotal": 13746,
+        "cost": 0.0108,
+        "providerRetryCount": 2,
+        "qualityRepairCount": 0,
+        "gate": {
+          "passed": false,
+          "failures": [
+            "completionRate must equal 1.0",
+            "evaluation games must not enter illegal or incomplete state"
+          ]
+        }
+      },
+      "delta": {
+        "completionRate": -1,
+        "validVoteRate": 0,
+        "invalidOutputRate": 0.0909,
+        "descriptionExactSecretLeaks": 0,
+        "descriptionHomogeneity": -0.0636,
+        "latencyP50Ms": -1085.9595,
+        "latencyP95Ms": 27122.820699999997,
+        "tokens": -9414,
+        "cost": -0.0067,
+        "providerRetryCount": 2,
+        "qualityRepairCount": 0
+      }
+    },
+    {
+      "seed": 102,
+      "baseline": {
+        "seed": 102,
+        "completionRate": 1,
+        "validVoteRate": 1,
+        "invalidOutputRate": 0,
+        "descriptionExactSecretLeaks": 0,
+        "descriptionHomogeneity": 0.0558,
+        "latencyMs": {
+          "p50": 4856.384,
+          "p95": 23609.3219
+        },
+        "tokensTotal": 9679,
+        "cost": 0.007,
+        "providerRetryCount": 0,
+        "qualityRepairCount": 0,
+        "gate": {
+          "passed": true,
+          "failures": []
+        }
+      },
+      "final": {
+        "seed": 102,
+        "completionRate": 1,
+        "validVoteRate": 1,
+        "invalidOutputRate": 0,
+        "descriptionExactSecretLeaks": 0,
+        "descriptionHomogeneity": 0.0128,
+        "latencyMs": {
+          "p50": 7060.9625,
+          "p95": 24484.4351
+        },
+        "tokensTotal": 15763,
+        "cost": 0.0122,
+        "providerRetryCount": 1,
+        "qualityRepairCount": 1,
+        "gate": {
+          "passed": true,
+          "failures": []
+        }
+      },
+      "delta": {
+        "completionRate": 0,
+        "validVoteRate": 0,
+        "invalidOutputRate": 0,
+        "descriptionExactSecretLeaks": 0,
+        "descriptionHomogeneity": -0.043,
+        "latencyP50Ms": 2204.5784999999996,
+        "latencyP95Ms": 875.1131999999998,
+        "tokens": 6084,
+        "cost": 0.0052,
+        "providerRetryCount": 1,
+        "qualityRepairCount": 1
+      }
+    },
+    {
+      "seed": 103,
+      "baseline": {
+        "seed": 103,
+        "completionRate": 1,
+        "validVoteRate": 1,
+        "invalidOutputRate": 0,
+        "descriptionExactSecretLeaks": 0,
+        "descriptionHomogeneity": 0.0636,
+        "latencyMs": {
+          "p50": 7661.0175,
+          "p95": 40891.1872
+        },
+        "tokensTotal": 35110,
+        "cost": 0.0268,
+        "providerRetryCount": 3,
+        "qualityRepairCount": 0,
+        "gate": {
+          "passed": true,
+          "failures": []
+        }
+      },
+      "final": {
+        "seed": 103,
+        "completionRate": 1,
+        "validVoteRate": 1,
+        "invalidOutputRate": 0,
+        "descriptionExactSecretLeaks": 0,
+        "descriptionHomogeneity": 0.0088,
+        "latencyMs": {
+          "p50": 6749.7352,
+          "p95": 24959.4664
+        },
+        "tokensTotal": 18927,
+        "cost": 0.0143,
+        "providerRetryCount": 0,
+        "qualityRepairCount": 0,
+        "gate": {
+          "passed": true,
+          "failures": []
+        }
+      },
+      "delta": {
+        "completionRate": 0,
+        "validVoteRate": 0,
+        "invalidOutputRate": 0,
+        "descriptionExactSecretLeaks": 0,
+        "descriptionHomogeneity": -0.0548,
+        "latencyP50Ms": -911.2822999999999,
+        "latencyP95Ms": -15931.7208,
+        "tokens": -16183,
+        "cost": -0.0125,
+        "providerRetryCount": -3,
+        "qualityRepairCount": 0
+      }
+    },
+    {
+      "seed": 104,
+      "baseline": {
+        "seed": 104,
+        "completionRate": 1,
+        "validVoteRate": 1,
+        "invalidOutputRate": 0,
+        "descriptionExactSecretLeaks": 0,
+        "descriptionHomogeneity": 0.0603,
+        "latencyMs": {
+          "p50": 9750.1146,
+          "p95": 40507.9283
+        },
+        "tokensTotal": 22937,
+        "cost": 0.0173,
+        "providerRetryCount": 2,
+        "qualityRepairCount": 0,
+        "gate": {
+          "passed": true,
+          "failures": []
+        }
+      },
+      "final": {
+        "seed": 104,
+        "completionRate": 1,
+        "validVoteRate": 1,
+        "invalidOutputRate": 0,
+        "descriptionExactSecretLeaks": 0,
+        "descriptionHomogeneity": 0.0139,
+        "latencyMs": {
+          "p50": 7672.6836,
+          "p95": 39595.1532
+        },
+        "tokensTotal": 26588,
+        "cost": 0.0198,
+        "providerRetryCount": 1,
+        "qualityRepairCount": 0,
+        "gate": {
+          "passed": true,
+          "failures": []
+        }
+      },
+      "delta": {
+        "completionRate": 0,
+        "validVoteRate": 0,
+        "invalidOutputRate": 0,
+        "descriptionExactSecretLeaks": 0,
+        "descriptionHomogeneity": -0.0464,
+        "latencyP50Ms": -2077.4310000000005,
+        "latencyP95Ms": -912.7750999999989,
+        "tokens": 3651,
+        "cost": 0.0025,
+        "providerRetryCount": -1,
+        "qualityRepairCount": 0
+      }
+    },
+    {
+      "seed": 105,
+      "baseline": {
+        "seed": 105,
+        "completionRate": 1,
+        "validVoteRate": 1,
+        "invalidOutputRate": 0,
+        "descriptionExactSecretLeaks": 0,
+        "descriptionHomogeneity": 0.0769,
+        "latencyMs": {
+          "p50": 3856.5441,
+          "p95": 50555.3745
+        },
+        "tokensTotal": 17942,
+        "cost": 0.0122,
+        "providerRetryCount": 1,
+        "qualityRepairCount": 0,
+        "gate": {
+          "passed": true,
+          "failures": []
+        }
+      },
+      "final": {
+        "seed": 105,
+        "completionRate": 1,
+        "validVoteRate": 1,
+        "invalidOutputRate": 0,
+        "descriptionExactSecretLeaks": 0,
+        "descriptionHomogeneity": 0.0178,
+        "latencyMs": {
+          "p50": 17759.255,
+          "p95": 58342.955
+        },
+        "tokensTotal": 61232,
+        "cost": 0.0502,
+        "providerRetryCount": 7,
+        "qualityRepairCount": 0,
+        "gate": {
+          "passed": true,
+          "failures": []
+        }
+      },
+      "delta": {
+        "completionRate": 0,
+        "validVoteRate": 0,
+        "invalidOutputRate": 0,
+        "descriptionExactSecretLeaks": 0,
+        "descriptionHomogeneity": -0.0591,
+        "latencyP50Ms": 13902.710900000002,
+        "latencyP95Ms": 7787.580500000004,
+        "tokens": 43290,
+        "cost": 0.038,
+        "providerRetryCount": 6,
+        "qualityRepairCount": 0
+      }
+    }
+  ],
+  "aggregate": {
+    "baseline": {
+      "side": "baseline",
+      "games": 5,
+      "completionRate": 1,
+      "validVoteRate": 1,
+      "invalidOutputRate": 0,
+      "descriptionExactSecretLeaks": 0,
+      "descriptionHomogeneity": 0.064,
+      "latencyMs": {
+        "p50": 6079.0278,
+        "p95": 36629.7186
+      },
+      "totalTokens": 108828,
+      "tokensPerGame": 21765.6,
+      "totalCost": 0.0808,
+      "costPerGame": 0.0162,
+      "providerRetryCount": 6,
+      "qualityRepairCount": 0,
+      "gateFailures": [],
+      "bySeed": [
+        {
+          "seed": 101,
+          "completionRate": 1,
+          "validVoteRate": 1,
+          "invalidOutputRate": 0,
+          "descriptionExactSecretLeaks": 0,
+          "descriptionHomogeneity": 0.0636,
+          "latencyMs": {
+            "p50": 7467.2125,
+            "p95": 33511.0089
+          },
+          "tokensTotal": 23160,
+          "cost": 0.0175,
+          "providerRetryCount": 0,
+          "qualityRepairCount": 0,
+          "gate": {
+            "passed": true,
+            "failures": []
+          }
+        },
+        {
+          "seed": 102,
+          "completionRate": 1,
+          "validVoteRate": 1,
+          "invalidOutputRate": 0,
+          "descriptionExactSecretLeaks": 0,
+          "descriptionHomogeneity": 0.0558,
+          "latencyMs": {
+            "p50": 4856.384,
+            "p95": 23609.3219
+          },
+          "tokensTotal": 9679,
+          "cost": 0.007,
+          "providerRetryCount": 0,
+          "qualityRepairCount": 0,
+          "gate": {
+            "passed": true,
+            "failures": []
+          }
+        },
+        {
+          "seed": 103,
+          "completionRate": 1,
+          "validVoteRate": 1,
+          "invalidOutputRate": 0,
+          "descriptionExactSecretLeaks": 0,
+          "descriptionHomogeneity": 0.0636,
+          "latencyMs": {
+            "p50": 7661.0175,
+            "p95": 40891.1872
+          },
+          "tokensTotal": 35110,
+          "cost": 0.0268,
+          "providerRetryCount": 3,
+          "qualityRepairCount": 0,
+          "gate": {
+            "passed": true,
+            "failures": []
+          }
+        },
+        {
+          "seed": 104,
+          "completionRate": 1,
+          "validVoteRate": 1,
+          "invalidOutputRate": 0,
+          "descriptionExactSecretLeaks": 0,
+          "descriptionHomogeneity": 0.0603,
+          "latencyMs": {
+            "p50": 9750.1146,
+            "p95": 40507.9283
+          },
+          "tokensTotal": 22937,
+          "cost": 0.0173,
+          "providerRetryCount": 2,
+          "qualityRepairCount": 0,
+          "gate": {
+            "passed": true,
+            "failures": []
+          }
+        },
+        {
+          "seed": 105,
+          "completionRate": 1,
+          "validVoteRate": 1,
+          "invalidOutputRate": 0,
+          "descriptionExactSecretLeaks": 0,
+          "descriptionHomogeneity": 0.0769,
+          "latencyMs": {
+            "p50": 3856.5441,
+            "p95": 50555.3745
+          },
+          "tokensTotal": 17942,
+          "cost": 0.0122,
+          "providerRetryCount": 1,
+          "qualityRepairCount": 0,
+          "gate": {
+            "passed": true,
+            "failures": []
+          }
+        }
+      ]
+    },
+    "final": {
+      "side": "final",
+      "games": 5,
+      "completionRate": 0.8,
+      "validVoteRate": 1,
+      "invalidOutputRate": 0.0182,
+      "descriptionExactSecretLeaks": 0,
+      "descriptionHomogeneity": 0.0107,
+      "latencyMs": {
+        "p50": 10236.2338,
+        "p95": 58342.955
+      },
+      "totalTokens": 136256,
+      "tokensPerGame": 27251.2,
+      "totalCost": 0.1073,
+      "costPerGame": 0.0215,
+      "providerRetryCount": 11,
+      "qualityRepairCount": 1,
+      "gateFailures": [
+        {
+          "seed": 101,
+          "failures": [
+            "completionRate must equal 1.0",
+            "evaluation games must not enter illegal or incomplete state"
+          ]
+        }
+      ],
+      "bySeed": [
+        {
+          "seed": 101,
+          "completionRate": 0,
+          "validVoteRate": 1,
+          "invalidOutputRate": 0.0909,
+          "descriptionExactSecretLeaks": 0,
+          "descriptionHomogeneity": 0,
+          "latencyMs": {
+            "p50": 6381.253,
+            "p95": 60633.8296
+          },
+          "tokensTotal": 13746,
+          "cost": 0.0108,
+          "providerRetryCount": 2,
+          "qualityRepairCount": 0,
+          "gate": {
+            "passed": false,
+            "failures": [
+              "completionRate must equal 1.0",
+              "evaluation games must not enter illegal or incomplete state"
+            ]
+          }
+        },
+        {
+          "seed": 102,
+          "completionRate": 1,
+          "validVoteRate": 1,
+          "invalidOutputRate": 0,
+          "descriptionExactSecretLeaks": 0,
+          "descriptionHomogeneity": 0.0128,
+          "latencyMs": {
+            "p50": 7060.9625,
+            "p95": 24484.4351
+          },
+          "tokensTotal": 15763,
+          "cost": 0.0122,
+          "providerRetryCount": 1,
+          "qualityRepairCount": 1,
+          "gate": {
+            "passed": true,
+            "failures": []
+          }
+        },
+        {
+          "seed": 103,
+          "completionRate": 1,
+          "validVoteRate": 1,
+          "invalidOutputRate": 0,
+          "descriptionExactSecretLeaks": 0,
+          "descriptionHomogeneity": 0.0088,
+          "latencyMs": {
+            "p50": 6749.7352,
+            "p95": 24959.4664
+          },
+          "tokensTotal": 18927,
+          "cost": 0.0143,
+          "providerRetryCount": 0,
+          "qualityRepairCount": 0,
+          "gate": {
+            "passed": true,
+            "failures": []
+          }
+        },
+        {
+          "seed": 104,
+          "completionRate": 1,
+          "validVoteRate": 1,
+          "invalidOutputRate": 0,
+          "descriptionExactSecretLeaks": 0,
+          "descriptionHomogeneity": 0.0139,
+          "latencyMs": {
+            "p50": 7672.6836,
+            "p95": 39595.1532
+          },
+          "tokensTotal": 26588,
+          "cost": 0.0198,
+          "providerRetryCount": 1,
+          "qualityRepairCount": 0,
+          "gate": {
+            "passed": true,
+            "failures": []
+          }
+        },
+        {
+          "seed": 105,
+          "completionRate": 1,
+          "validVoteRate": 1,
+          "invalidOutputRate": 0,
+          "descriptionExactSecretLeaks": 0,
+          "descriptionHomogeneity": 0.0178,
+          "latencyMs": {
+            "p50": 17759.255,
+            "p95": 58342.955
+          },
+          "tokensTotal": 61232,
+          "cost": 0.0502,
+          "providerRetryCount": 7,
+          "qualityRepairCount": 0,
+          "gate": {
+            "passed": true,
+            "failures": []
+          }
+        }
+      ]
+    },
+    "delta": {
+      "completionRate": -0.2,
+      "validVoteRate": 0,
+      "invalidOutputRate": 0.0182,
+      "descriptionExactSecretLeaks": 0,
+      "descriptionHomogeneity": -0.0533,
+      "latencyP50Ms": 4157.206,
+      "latencyP95Ms": 21713.2364,
+      "tokensPerGame": 5485.6,
+      "costPerGame": 0.0053,
+      "providerRetryCount": 5,
+      "qualityRepairCount": 1
+    }
+  }
+}

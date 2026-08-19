@@ -1,0 +1,83 @@
+{
+  "milestone": "M6 final baseline vs improved evaluation",
+  "date": "2026-08-19T14:56:49.929Z",
+  "seeds": [
+    101,
+    102,
+    103,
+    104,
+    105
+  ],
+  "gamesPerSeedPerSide": 1,
+  "mode": "real",
+  "baseline": {
+    "branch": "baseline",
+    "commit": "7d98e194ee57bb078ed45e9831ad42ff68a57b56",
+    "engineSrc": "temporary git worktree at baseline commit (removed after run; re-extract with: git worktree add <dir> baseline)"
+  },
+  "final": {
+    "branch": "main",
+    "commit": "49eb39da8be4f7f959a8afd642272046ca8637e9",
+    "engineSrc": "packages/server-node (eval/m6-final-comparison worktree)"
+  },
+  "model": {
+    "provider": "https://api.deepseek.com",
+    "model": "deepseek-v4-flash",
+    "temperature": {
+      "describe": 0.8,
+      "vote": 0.8,
+      "review": 0.45
+    }
+  },
+  "evaluator": {
+    "schemaVersion": 5,
+    "file": "packages/server-node/server/evaluation.ts",
+    "sameHarnessForBothSides": true,
+    "sameMetrics": true
+  },
+  "cost": {
+    "currency": "USD",
+    "inputTokenPricePer1M": 0.27,
+    "outputTokenPricePer1M": 1.1,
+    "source": "DeepSeek deepseek-chat public pricing snapshot (estimate)",
+    "sourceDate": "2026-08-19"
+  },
+  "wordSetup": {
+    "samePairsForBothSides": true,
+    "matchedForEverySeed": true,
+    "check": [
+      {
+        "seed": 101,
+        "matched": true,
+        "hash": "07a578c5e5983a773fe576da6c5df28ad1f260b7f8d5acefa03684f22accfde0"
+      },
+      {
+        "seed": 102,
+        "matched": true,
+        "hash": "ef2e5c6bbd88f5b5a0fb2950af368f074bd104c0c89b14a1b1eb0cbaf4aeabfb"
+      },
+      {
+        "seed": 103,
+        "matched": true,
+        "hash": "c68b1a88ec1caa22c2e7fff6605a934f916278fe699c1e993555bb98840edb80"
+      },
+      {
+        "seed": 104,
+        "matched": true,
+        "hash": "d2ac962cc8c21bc63f2da0f20f5b46a74eb743a408ed1da7de80df81af9de063"
+      },
+      {
+        "seed": 105,
+        "matched": true,
+        "hash": "94a8f8b5c613cd333aa3fa02786865238655ed586bbc8b6208c6c98dd5d6b054"
+      }
+    ]
+  },
+  "trajectoryEvidence": {
+    "m2": "PASS",
+    "m3": "PASS",
+    "m4": "PASS",
+    "m5": "PASS",
+    "note": "referenced from existing milestone evidence; not re-scored in M6"
+  }
+}

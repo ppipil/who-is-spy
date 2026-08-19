@@ -59,3 +59,5 @@
 策略里程碑验证:`npm run test:node` 为 5 文件/10 测试通过;`npm run contract:node` 为 28/28;`npm run build` 通过;相同 seed 的 Fake eval 为 20/20 完局、四策略独立聚合、同质化 0。真实模型记录保持空白,直到实际调用成功。
 
 顺序编排验证:`npm run test:node` 为 5 文件/11 测试通过(含 `0→1→2→3` 与第四 Agent 故障原子性);契约 28/28、Fake eval 20/20、build 通过。
+
+M6 Final Baseline vs Improved:`npm.cmd test --workspace packages/server-node` 为 8 文件/35 测试通过(含 schema v5 evaluator 与 usage/cost/retry 采集);`npm.cmd run contract:node` 为 28/28;`npm.cmd run build` 通过。评测层最小改动:同一 `runEvaluation` 增加 `engineFactory` 参数驱动 baseline 引擎(默认行为不变),baseline 取自临时 worktree、不改仓库内产品代码,仅加 usage 插桩;word setup 按 seed 逐局校验 matched。Fake sanity(seeds 101–105)两侧 10/10 gate PASS。真实 DeepSeek paired(seeds 101–105,交替顺序):Baseline 5/5 完局、Final 4/5(seed 101 老墨 describe 真实 provider 超时导致安全中止,如实记录不换 seed);两侧 exact secret leak 均为 0,validVoteRate 均 100%;Lexical Homogeneity(bigram+Dice proxy,非语义)Baseline 0.0640 vs Final 0.0107;latency p50/p95 Baseline 6079/36630 ms vs Final 10236/58343 ms;tokens/Game 21766 vs 27251;估算成本/Game $0.0162 vs $0.0215(deepseek-chat 公开价快照,仅估算);provider retries 6 vs 11;Final quality repairs 1。完整 raw/aggregate/summary 见 `docs/evidence/m6-final-comparison/`。
