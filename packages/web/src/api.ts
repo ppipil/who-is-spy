@@ -1,4 +1,4 @@
-import type { PublicGameState } from './types';
+import type { DescriptionPublishedProgressEvent, PhaseChangedProgressEvent, PublicGameState } from './types';
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -22,6 +22,18 @@ export const api = {
     request<PublicGameState>('/api/games', { method: 'POST' }),
   getGame: (id: string) =>
     request<PublicGameState>(`/api/games/${id}`),
+  subscribeToProgress: (
+    id: string,
+    handlers: {
+      onDescription: (event: DescriptionPublishedProgressEvent) => void;
+      onPhase: (event: PhaseChangedProgressEvent) => void;
+    },
+  ) => {
+    const source = new EventSource(`/api/games/${id}/events`);
+    source.addEventListener('description_published', (message) => handlers.onDescription(JSON.parse(message.data)));
+    source.addEventListener('phase_changed', (message) => handlers.onPhase(JSON.parse(message.data)));
+    return source;
+  },
   describe: (id: string, text: string) =>
     request<PublicGameState>(`/api/games/${id}/describe`, {
       method: 'POST',

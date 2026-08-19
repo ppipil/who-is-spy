@@ -18,7 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import { api } from './api';
-import type { PublicGameState, PublicPlayer, Role } from './types';
+import type { DescriptionPublishedProgressEvent, PhaseChangedProgressEvent, PublicGameState, PublicPlayer, Role } from './types';
 
 type Screen = 'home' | 'reveal' | 'game';
 
@@ -49,6 +49,15 @@ export function App() {
     }
   }, [game?.events.length, screen]);
 
+  useEffect(() => {
+    if (screen !== 'game' || !game) return;
+    const source = api.subscribeToProgress(game.id, {
+      onDescription: (event) => setGame((current) => applyDescriptionProgress(current, event)),
+      onPhase: (event) => setGame((current) => applyPhaseProgress(current, event)),
+    });
+    return () => source.close();
+  }, [game?.id, screen]);
+
   const runAction = async (action: () => Promise<PublicGameState>) => {
     setBusy(true);
     setError('');
@@ -69,31 +78,18 @@ export function App() {
     const gameId = game.id;
     setBusy(true);
     setError('');
-    let acceptingPollUpdates = true;
-    const refresh = () => {
-      void api
-        .getGame(gameId)
-        .then((nextGame) => {
-          if (acceptingPollUpdates) setGame(nextGame);
-        })
-        .catch(() => undefined);
-    };
-    const pollId = window.setInterval(refresh, 250);
     try {
       const nextGame = await api.describe(gameId, description);
-      acceptingPollUpdates = false;
       setGame(nextGame);
       setDescription('');
     } catch (actionError) {
-      acceptingPollUpdates = false;
       try {
         setGame(await api.getGame(gameId));
       } catch {
-        // Keep the most recent public state if the recovery read also fails.
+        // Keep the latest SSE state if the one-time recovery read also fails.
       }
       setError(actionError instanceof Error ? actionError.message : '发生未知错误');
     } finally {
-      window.clearInterval(pollId);
       setBusy(false);
     }
   };
@@ -499,7 +495,7 @@ function PlayerSeat({
 
   return (
     <button
-      className={`player-seat ${player.isHuman ? 'human' : ''} ${!player.alive ? 'eliminated' : ''} ${selectable ? 'selectable' : ''} ${selected ? 'selected' : ''}`}
+      className={`player-seat ${player.isHuman ? 'human' : ''} ${latestDescription ? 'has-description' : ''} ${!player.alive ? 'eliminated' : ''} ${selectable ? 'selectable' : ''} ${selected ? 'selected' : ''}`}
       disabled={!selectable}
       onClick={onSelect}
     >
@@ -789,6 +785,34 @@ function descriptionProgress(game: PublicGameState): string {
   const nextAgent = speakingAgents[completedAiDescriptions];
   if (nextAgent) return `${nextAgent.name} 正在思考（${currentRound.length + 1}/5）`;
   return '正在确认本轮公开描述（5/5）';
+}
+
+function applyDescriptionProgress(
+  game: PublicGameState | null,
+  event: DescriptionPublishedProgressEvent,
+): PublicGameState | null {
+  if (!game || game.id !== event.gameId || game.events.some((item) => item.id === event.event.id)) return game;
+  return {
+    ...game,
+    descriptions: game.descriptions.some(
+      (item) => item.playerId === event.description.playerId && item.round === event.description.round,
+    )
+      ? game.descriptions
+      : [...game.descriptions, event.description],
+    events: [...game.events, event.event],
+  };
+}
+
+function applyPhaseProgress(game: PublicGameState | null, event: PhaseChangedProgressEvent): PublicGameState | null {
+  if (!game || game.id !== event.gameId || game.events.some((item) => item.id === event.event.id)) return game;
+  return {
+    ...game,
+    phase: event.phase,
+    round: event.round,
+    ballot: event.ballot,
+    eligibleTargetIds: event.eligibleTargetIds,
+    events: [...game.events, event.event],
+  };
 }
 
 function roleName(role?: Role | null): string {

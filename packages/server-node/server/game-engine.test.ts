@@ -30,6 +30,37 @@ class PausedDescriptionModel extends FakeGameModel {
   }
 }
 
+class PausedVoteModel extends FakeGameModel {
+  readonly pendingVoteContexts: AgentContext[] = [];
+  readonly plannedVoteTargets: string[] = [];
+  readonly allowedTargetSnapshots: string[][] = [];
+  private readonly voteResolvers: Array<() => void> = [];
+
+  override async vote(context: AgentContext, allowedTargets: Parameters<FakeGameModel['vote']>[1]): ReturnType<FakeGameModel['vote']> {
+    this.pendingVoteContexts.push(structuredClone(context));
+    this.allowedTargetSnapshots.push(allowedTargets.map((target) => target.id));
+    await new Promise<void>((resolve) => this.voteResolvers.push(resolve));
+    const isOpenBallot = allowedTargets.length === context.game.alivePlayers.length - 1;
+    const preferredTargetId = isOpenBallot
+      ? ({ 'ai-1': 'human', 'ai-2': 'human', 'ai-3': 'ai-1', 'ai-4': 'ai-2' } as Record<string, string>)[context.identity.playerId]
+      : ({ 'ai-1': 'human', 'ai-2': 'ai-1', 'ai-3': 'ai-1', 'ai-4': 'ai-1' } as Record<string, string>)[context.identity.playerId];
+    const target = allowedTargets.find((candidate) => candidate.id === preferredTargetId) ?? allowedTargets[0];
+    this.plannedVoteTargets.push(target.id);
+    return {
+      targetId: target.id,
+      reason: '用于验证预生成投票绑定',
+    };
+  }
+
+  releaseVotes(count: number): void {
+    for (let index = 0; index < count; index += 1) {
+      const resolve = this.voteResolvers.shift();
+      if (!resolve) throw new Error('no pending vote');
+      resolve();
+    }
+  }
+}
+
 describe('GameEngine', () => {
   it('runs a complete game with one human and four isolated AI players', async () => {
     const model = new FakeGameModel();
@@ -145,6 +176,37 @@ describe('GameEngine', () => {
           ).length,
       ),
     ).toEqual([0, 1, 2, 3]);
+  });
+
+  it('prefetches AI votes privately and regenerates them for a second ballot', async () => {
+    const model = new PausedVoteModel();
+    const engine = new GameEngine(model, () => 0);
+    const game = engine.createGame();
+
+    const voting = await engine.submitHumanDescription(game.id, '经常出现在普通生活里');
+    expect(voting.phase).toBe('voting');
+
+    await waitFor(() => model.pendingVoteContexts.length === 4);
+    expect(engine.getInternalGame(game.id).votes).toHaveLength(0);
+
+    const pendingHumanVote = engine.submitHumanVote(game.id, 'ai-1');
+    await Promise.resolve();
+    expect(engine.getInternalGame(game.id).votes).toHaveLength(0);
+
+    model.releaseVotes(4);
+    const secondBallot = await pendingHumanVote;
+    expect(model.plannedVoteTargets.slice(0, 4)).toEqual(['human', 'human', 'ai-1', 'ai-2']);
+    expect(secondBallot.phase).toBe('voting');
+    expect(secondBallot.ballot).toBe(2);
+    expect([...(secondBallot.eligibleTargetIds ?? [])].sort()).toEqual(['ai-1', 'human']);
+
+    await waitFor(() => model.pendingVoteContexts.length === 8);
+    expect(model.allowedTargetSnapshots.slice(4)).toEqual([
+      ['human'],
+      ['human', 'ai-1'],
+      ['human', 'ai-1'],
+      ['human', 'ai-1'],
+    ]);
   });
 });
 

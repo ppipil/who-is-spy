@@ -47,3 +47,24 @@ export interface PublicGameState {
   human: { playerId: string; role: Role; word: string };
   model: string;
 }
+
+export interface DescriptionPublishedProgressEvent {
+  type: 'description_published';
+  gameId: string;
+  description: { playerId: string; playerName: string; text: string; round: number };
+  event: GameEvent;
+  phase: 'describing';
+  progress: { completed: number; total: number; nextSpeaker: { playerId: string; playerName: string } | null };
+}
+
+export interface PhaseChangedProgressEvent {
+  type: 'phase_changed';
+  gameId: string;
+  phase: Phase;
+  round: number;
+  ballot: number;
+  eligibleTargetIds: string[] | null;
+  event: GameEvent;
+}
+
+export type GameProgressEvent = DescriptionPublishedProgressEvent | PhaseChangedProgressEvent;

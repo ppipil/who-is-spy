@@ -83,6 +83,31 @@ export interface PublicGameState {
   model: string;
 }
 
+export interface PublicDescriptionProgressEvent {
+  type: 'description_published';
+  gameId: string;
+  description: Description & { playerName: string };
+  event: GameEvent;
+  phase: 'describing';
+  progress: {
+    completed: number;
+    total: number;
+    nextSpeaker: { playerId: string; playerName: string } | null;
+  };
+}
+
+export interface PublicPhaseProgressEvent {
+  type: 'phase_changed';
+  gameId: string;
+  phase: Phase;
+  round: number;
+  ballot: number;
+  eligibleTargetIds: string[] | null;
+  event: GameEvent;
+}
+
+export type PublicProgressEvent = PublicDescriptionProgressEvent | PublicPhaseProgressEvent;
+
 export interface AgentContext {
   identity: {
     playerId: string;

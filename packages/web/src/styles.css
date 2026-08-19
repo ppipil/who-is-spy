@@ -863,6 +863,11 @@ textarea:focus-visible {
   background: rgba(255, 255, 255, 0.45);
 }
 
+.player-seat.has-description {
+  border-color: rgba(182, 77, 49, 0.38);
+  background: rgba(255, 255, 255, 0.32);
+}
+
 .player-seat.selected {
   border-color: var(--rust);
   background: rgba(182, 77, 49, 0.08);
@@ -918,10 +923,15 @@ textarea:focus-visible {
 
 .seat-quote {
   grid-column: 1 / 3;
+  display: block;
+  margin-top: 2px;
+  padding: 5px 7px;
   overflow: hidden;
   color: #665f55;
   font-size: 11px;
   line-height: 1.5;
+  background: rgba(255, 255, 255, 0.58);
+  border-left: 2px solid rgba(182, 77, 49, 0.45);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1848,7 +1858,10 @@ textarea:focus-visible {
   }
 
   .seat-quote {
-    display: none;
+    display: block;
+    grid-column: 1;
+    max-width: 100%;
+    white-space: normal;
   }
 
   .table-center {
