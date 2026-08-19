@@ -59,3 +59,5 @@
 策略里程碑验证:`npm run test:node` 为 5 文件/10 测试通过;`npm run contract:node` 为 28/28;`npm run build` 通过;相同 seed 的 Fake eval 为 20/20 完局、四策略独立聚合、同质化 0。真实模型记录保持空白,直到实际调用成功。
 
 顺序编排验证:`npm run test:node` 为 5 文件/11 测试通过(含 `0→1→2→3` 与第四 Agent 故障原子性);契约 28/28、Fake eval 20/20、build 通过。
+
+M5 可靠性验证:`npm.cmd test --workspace packages/server-node` 为 8 文件/33 测试通过;`npm.cmd run contract:node` 为 28/28;`npm.cmd run build` 通过。新增 `fault-demo`/`replay` 支持 deterministic fault injection 与 JSONL trace,场景包括 timeout、bad JSON、schema failure、429、5xx、final description failure、final vote failure 和 review fallback。`server/model.test.ts` 使用 mock transport 覆盖真实 `DeepSeekClient` 分类逻辑:timeout、rate_limit、provider_5xx、http_non_retryable、invalid_json、schema_validation、network。`vote-final-failure` 证明首批私有 votes 因 AI 最终失败整批丢弃,Human vote/AI votes 不半提交,pending 清理后同 ballot 可重试成功;`review-failure` 证明终局 review 失败后使用 local fallback 且 finished 状态有效。DeepSeek happy-path smoke 跑 seed 42/43/44:seed 43 与 44 为 1/1 完局且 Gate PASS;seed 42 出现真实 invalid vote 导致 Gate FAIL,作为可靠性观察记录,不当作 M6 统计结论。详见 `docs/evidence/m5-reliability/summary.md`。
