@@ -1,7 +1,7 @@
 import { performance } from 'node:perf_hooks';
 import { GameEngine } from './game-engine.js';
 import type { DescriptionQualityEvent } from './description-quality.js';
-import type { GameModel } from './model.js';
+import type { GameModel, ModelUsageEvent } from './model.js';
 import { DeepSeekClient, ModelError } from './model.js';
 import { FakeGameModel } from './test-utils.js';
 import type { AgentContext, GameReview, GameState, Player, PublicGameState, Role } from './types.js';
@@ -10,7 +10,7 @@ export type EvaluationModelKind = 'fake' | 'real';
 export type EvaluationErrorType = 'timeout' | 'http' | 'schema' | 'validation' | 'secret' | 'unknown' | null;
 export type EvaluationTask = 'describe' | 'vote' | 'review';
 
-export const EVALUATION_SCHEMA_VERSION = 2;
+export const EVALUATION_SCHEMA_VERSION = 3;
 
 export interface EvaluationOptions {
   games: number;
@@ -19,6 +19,16 @@ export interface EvaluationOptions {
   model?: GameModel;
   commit?: string;
   runId?: string;
+  cost?: EvaluationCostConfig;
+}
+
+export interface EvaluationCostConfig {
+  model: string;
+  currency: string;
+  inputTokenPricePer1M: number;
+  outputTokenPricePer1M: number;
+  source: string;
+  sourceDate: string;
 }
 
 export interface StrategyEvaluationMetrics {
@@ -41,7 +51,10 @@ export interface EvaluationMetrics {
   validVoteRate: number;
   retryRate: number;
   latencyMs: { p50: number; p95: number };
-  tokenUsage: { input: number; output: number; total: number; source: 'unavailable' };
+  tokenUsage: EvaluationTokenUsage;
+  internalRetryCount: number;
+  retryAddedTokens: number;
+  cost: EvaluationCostEstimate;
   byStrategyId: Record<string, StrategyEvaluationMetrics>;
   descriptionHomogeneity: number;
   safety: {
@@ -55,8 +68,32 @@ export interface EvaluationMetrics {
   };
 }
 
+export interface EvaluationTokenUsage {
+  input: number;
+  output: number;
+  total: number;
+  averagePerGame: { input: number; output: number; total: number };
+  byTask: Record<EvaluationTask, { input: number; output: number; total: number; retryAddedTokens: number }>;
+  source: 'provider' | 'unavailable';
+}
+
+export interface EvaluationCostEstimate {
+  source: 'configured' | 'unavailable';
+  model: string;
+  currency: string;
+  inputTokenPricePer1M: number | null;
+  outputTokenPricePer1M: number | null;
+  priceSource: string | null;
+  priceSourceDate: string | null;
+  inputCost: number;
+  outputCost: number;
+  totalCost: number;
+  averageCostPerGame: number;
+  formula: string;
+}
+
 export interface EvaluationResult {
-  schemaVersion: 2;
+  schemaVersion: 3;
   run: {
     runId: string;
     commit: string;
@@ -66,9 +103,9 @@ export interface EvaluationResult {
     gateSource: 'runEvaluation';
     scenario: { seed: number; games: number };
     unavailable: {
-      tokenUsage: true;
-      cost: true;
-      internalProviderRetries: true;
+      tokenUsage: boolean;
+      cost: boolean;
+      internalProviderRetries: boolean;
     };
   };
   configuration: { games: number; seed: number; model: EvaluationModelKind };
@@ -134,6 +171,8 @@ interface Instrumentation {
   qualityViolations: DescriptionQualityEvent[];
   currentGameId: string | null;
   modelCalls: EvaluationModelCallTrace[];
+  usageEvents: ModelUsageEvent[];
+  internalRetryCount: number;
 }
 
 class InstrumentedModel implements GameModel {
@@ -211,6 +250,9 @@ class InstrumentedModel implements GameModel {
       this.instrumentation.invalidOutputs += 1;
       call.status = 'failure';
       Object.assign(call, classifyModelCallError(error));
+      if (error instanceof ModelError && error.diagnostic) {
+        this.instrumentation.internalRetryCount += Math.max(0, error.diagnostic.internalAttempts - 1);
+      }
       throw error;
     } finally {
       call.latencyMs = round(performance.now() - startedAt);
@@ -257,9 +299,15 @@ export async function runEvaluation(options: EvaluationOptions): Promise<Evaluat
     qualityViolations: [],
     currentGameId: null,
     modelCalls: [],
+    usageEvents: [],
+    internalRetryCount: 0,
   };
-  const delegate = options.model ?? (options.modelKind === 'fake' ? new FakeGameModel() : new DeepSeekClient());
+  const delegate: GameModel = options.model ?? (options.modelKind === 'fake' ? new FakeGameModel() : new DeepSeekClient());
   if (!delegate.isConfigured()) throw new Error(`model ${delegate.model} is not configured`);
+  delegate.setUsageRecorder?.((event: ModelUsageEvent) => {
+    instrumentation.usageEvents.push(event);
+    if (event.providerAttempt > 1) instrumentation.internalRetryCount += event.providerAttempt - 1;
+  });
   const model = new InstrumentedModel(delegate, instrumentation);
 
   let completedGames = 0;
@@ -315,6 +363,8 @@ export async function runEvaluation(options: EvaluationOptions): Promise<Evaluat
   }
 
   const modelAttempts = instrumentation.descriptionAttempts + instrumentation.voteAttempts + instrumentation.reviewAttempts;
+  const tokenUsage = buildTokenUsage(instrumentation.usageEvents, options.games);
+  const cost = buildCostEstimate(tokenUsage, options.cost, delegate.model, options.games);
   const metrics: EvaluationMetrics = {
     startedGames: options.games,
     completedGames,
@@ -338,7 +388,10 @@ export async function runEvaluation(options: EvaluationOptions): Promise<Evaluat
       p50: percentile(instrumentation.latencies, 0.5),
       p95: percentile(instrumentation.latencies, 0.95),
     },
-    tokenUsage: { input: 0, output: 0, total: 0, source: 'unavailable' },
+    tokenUsage,
+    internalRetryCount: instrumentation.internalRetryCount,
+    retryAddedTokens: tokenUsage.input + tokenUsage.output === 0 ? 0 : sumUsage(instrumentation.usageEvents.filter((event) => event.providerAttempt > 1)).total,
+    cost,
     byStrategyId: Object.fromEntries(
       [...strategyMetrics.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([id, group]) => [
         id,
@@ -379,7 +432,11 @@ export async function runEvaluation(options: EvaluationOptions): Promise<Evaluat
       durationMs: round(performance.now() - startedMs),
       gateSource: 'runEvaluation',
       scenario: { seed: options.seed, games: options.games },
-      unavailable: { tokenUsage: true, cost: true, internalProviderRetries: true },
+      unavailable: {
+        tokenUsage: tokenUsage.source === 'unavailable',
+        cost: cost.source === 'unavailable',
+        internalProviderRetries: instrumentation.usageEvents.length === 0 && instrumentation.internalRetryCount === 0,
+      },
     },
     configuration: { games: options.games, seed: options.seed, model: options.modelKind },
     metrics,
@@ -570,6 +627,99 @@ function mulberry32(seed: number): () => number {
     value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
     return ((value ^ (value >>> 14)) >>> 0) / 4_294_967_296;
   };
+}
+
+function buildTokenUsage(events: ModelUsageEvent[], games: number): EvaluationTokenUsage {
+  const totals = sumUsage(events);
+  return {
+    ...totals,
+    averagePerGame: {
+      input: ratio(totals.input, games),
+      output: ratio(totals.output, games),
+      total: ratio(totals.total, games),
+    },
+    byTask: {
+      describe: buildTaskUsage(events, 'describe'),
+      vote: buildTaskUsage(events, 'vote'),
+      review: buildTaskUsage(events, 'review'),
+    },
+    source: events.length > 0 ? 'provider' : 'unavailable',
+  };
+}
+
+function buildTaskUsage(
+  events: ModelUsageEvent[],
+  task: EvaluationTask,
+): { input: number; output: number; total: number; retryAddedTokens: number } {
+  const taskEvents = events.filter((event) => event.task === task);
+  const totals = sumUsage(taskEvents);
+  return {
+    ...totals,
+    retryAddedTokens: sumUsage(taskEvents.filter((event) => event.providerAttempt > 1)).total,
+  };
+}
+
+function sumUsage(events: ModelUsageEvent[]): { input: number; output: number; total: number } {
+  return events.reduce(
+    (sum, event) => ({
+      input: sum.input + event.inputTokens,
+      output: sum.output + event.outputTokens,
+      total: sum.total + event.totalTokens,
+    }),
+    { input: 0, output: 0, total: 0 },
+  );
+}
+
+function buildCostEstimate(
+  tokenUsage: EvaluationTokenUsage,
+  cost: EvaluationCostConfig | undefined,
+  model: string,
+  games: number,
+): EvaluationCostEstimate {
+  const unavailable = {
+    source: 'unavailable' as const,
+    model: cost?.model ?? model,
+    currency: cost?.currency ?? 'unavailable',
+    inputTokenPricePer1M: cost?.inputTokenPricePer1M ?? null,
+    outputTokenPricePer1M: cost?.outputTokenPricePer1M ?? null,
+    priceSource: cost?.source ?? null,
+    priceSourceDate: cost?.sourceDate ?? null,
+    inputCost: 0,
+    outputCost: 0,
+    totalCost: 0,
+    averageCostPerGame: 0,
+    formula: 'unavailable: provider token usage and explicit price configuration are required',
+  };
+  if (!isConfiguredCost(cost) || tokenUsage.source === 'unavailable') return unavailable;
+
+  const inputCost = round((tokenUsage.input / 1_000_000) * cost.inputTokenPricePer1M);
+  const outputCost = round((tokenUsage.output / 1_000_000) * cost.outputTokenPricePer1M);
+  const totalCost = round(inputCost + outputCost);
+  return {
+    source: 'configured',
+    model: cost.model,
+    currency: cost.currency,
+    inputTokenPricePer1M: cost.inputTokenPricePer1M,
+    outputTokenPricePer1M: cost.outputTokenPricePer1M,
+    priceSource: cost.source,
+    priceSourceDate: cost.sourceDate,
+    inputCost,
+    outputCost,
+    totalCost,
+    averageCostPerGame: ratio(totalCost, games),
+    formula: '(inputTokens / 1,000,000 * inputTokenPricePer1M) + (outputTokens / 1,000,000 * outputTokenPricePer1M)',
+  };
+}
+
+function isConfiguredCost(cost: EvaluationCostConfig | undefined): cost is EvaluationCostConfig {
+  return Boolean(
+    cost &&
+      Number.isFinite(cost.inputTokenPricePer1M) &&
+      Number.isFinite(cost.outputTokenPricePer1M) &&
+      cost.currency !== 'unavailable' &&
+      cost.source !== 'unavailable' &&
+      cost.sourceDate !== 'unavailable',
+  );
 }
 
 function percentile(values: number[], quantile: number): number {
