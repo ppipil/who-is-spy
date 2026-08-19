@@ -18,7 +18,7 @@ Implemented strategies are `cautious`, `intuitive`, `analytical`, and `contraria
 
 ## Description and voting orchestration
 
-Descriptions are generated sequentially into an action-local staged list. Each later Agent sees only previously accepted public descriptions from the same round plus existing allowlisted history. The staged list is committed to `GameState` only after every required description succeeds; an injected fourth-Agent failure leaves the full formal state unchanged. Voting continues to use a single public snapshot in parallel so current-ballot votes cannot influence one another.
+The Human describes first. Each living AI then generates in stable `players[]` / profile order, and each successful AI description is immediately committed as a public description and event. The next AI therefore receives the formal, allowlisted public history—including the same-round prefix—rather than a private staging buffer. The phase changes to `voting` only after every required description succeeds. If an AI call fails, the already-public prefix remains and the game stays in `describing`; retry/recovery policy is deliberately deferred to M5. Voting continues to use a single public snapshot in parallel so current-ballot votes cannot influence one another.
 
 ## Quality gate
 

@@ -27,9 +27,11 @@ AI profiles carry stable `strategyId` values into `Player`, then into the allowl
 
 ## Sequential description orchestration
 
-`GameEngine.generateDescriptions` iterates living AI seats in stable order. It keeps generated outputs in a method-local staged array and builds each next context from the formal description history plus that accepted staged prefix. No staged object contains player roles or words; `buildAgentContext` still reconstructs the final input through its allowlist.
+`GameEngine.generateDescriptions` iterates living AI players in stable `players[]` / profile order (this is not a seat scheduler). The Human description is committed first; every successful AI output is then immediately appended to formal `GameState.descriptions` and recorded as a public `description` event. The next `buildAgentContext` reads this formal public history through its existing allowlist, so it observes the current-round AI prefix without access to roles or words.
 
-The caller appends descriptions/events and changes phase only after the method returns the complete batch. If any Agent throws—including the fourth—the formal state retains its previous descriptions, events, phase, ballot, and eligible targets. A test compares the full internal state before and after injected fourth-Agent failure. Another assertion filters out the already-public human description and observes current-round AI prefix sizes `0, 1, 2, 3`.
+The phase changes to `voting` only after the final required AI description succeeds. If an Agent throws—including the fourth—the already-public prefix is retained and the phase remains `describing`; the failed and later players contribute no description. This is an intentional partial-round state, with retry/recovery deferred to M5. Tests observe prefix sizes `0, 1, 2, 3`, verify each success is externally visible before the next AI begins, and inject a fourth-Agent failure to verify the retained three-AI prefix.
+
+The browser starts the normal `POST /describe` action once and refreshes the existing public `GET /api/games/:id` endpoint while it is pending. That small polling loop surfaces each committed description and event without streaming provider data or exposing any private model input/output. It stops before applying the final action response, so a delayed poll cannot overwrite the transition to `voting`.
 
 Voting remains `Promise.all` over one snapshot. `AgentContext` contains no votes, so current-ballot choices cannot influence later voters.
 

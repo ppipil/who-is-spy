@@ -18,13 +18,13 @@ npm run eval:node -- --games 3 --seed 42 --model real --commit 8ce7f23 --run-id 
 
 Cost is an estimate using the published cache-miss input and output price. The provider usage payload does not expose cache-hit/miss splits.
 
-## FakeModel — deterministic sequencing and atomicity
+## FakeModel — deterministic sequencing (original staged baseline)
 
 `fake-sequential-report.json` records 20/20 completed games and Gate PASS: 100% completion, 100% valid votes, 0% invalid output, homogeneity `0`, no exact description or public-state leaks, and all four strategy groups present (20 games each).
 
-The first game's four round-one `describe` calls record `sameRoundPublicAiDescriptionCount = [0, 1, 2, 3]`, with the human description present for all four calls. `game-engine.test.ts` additionally injects a fourth Agent failure and asserts full `GameState` equality before/after the action; staged descriptions therefore do not partially commit.
+The first game's four round-one `describe` calls record `sameRoundPublicAiDescriptionCount = [0, 1, 2, 3]`, with the human description present for all four calls. At the time this report was produced, `game-engine.test.ts` also asserted full rollback on a fourth-Agent failure because the product used action-local staging.
 
-This is deterministic wiring evidence. It proves Context presence and atomic state behavior, not that a real model necessarily uses the prefix well.
+This is deterministic wiring evidence for the original staged product baseline. It proves Context presence, not that a real model necessarily uses the prefix well. The later incremental-public-commit extension is documented separately in `incremental-public-commit.md`; it intentionally replaces the rollback behavior with a valid partial `describing` state.
 
 ## DeepSeek — fixed-seed small smoke
 
@@ -68,6 +68,6 @@ Both are one 3-game, fixed-seed DeepSeek smoke; model output remains stochastic,
 ## Limits retained
 
 - This is not a full seat-order scheduler: Human is fixed first; AI order comes from fixed `players[]` / profile order.
-- The UI does not display the live current speaker.
+- This report predates incremental browser display. The later extension polls the existing public game endpoint to show each committed description and current speaker; see `incremental-public-commit.md`.
 - M3 adds no quality gate, duplicate control, targeted repair, fault injection, fallback, replay, or M6 multi-seed comparison.
 - The reports contain no API key, Authorization header, prompt/messages, raw provider response, hidden reasoning, or complete secret word.
