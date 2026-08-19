@@ -16,6 +16,10 @@
 ```bash
 npm run eval:node -- --games 20 --seed 42 --model fake --commit fc9821c --run-id m1-fake-baseline-seed-42
 npm run eval:node -- --games 3 --seed 42 --model real --commit fc9821c --run-id m1-real-smoke-seed-42
+npm run eval:node -- --games 1 --seed 42 --model real --commit fc9821c --run-id m1-real-usage-smoke-seed-42 \
+  --cost-model deepseek-v4-flash --cost-currency USD \
+  --input-token-price-per-1m 0.14 --output-token-price-per-1m 0.28 \
+  --cost-source https://api-docs.deepseek.com/quick_start/pricing/ --cost-source-date 2026-08-19
 ```
 
 Both reports use the same chain:
@@ -28,19 +32,34 @@ eval-cli -> runEvaluation -> GameEngine -> observable model -> FakeGameModel/Dee
 
 | Model | Games | Gate | Description calls | Invalid output rate | Valid vote rate | Latency p50 / p95 | Token/cost |
 | --- | ---: | --- | ---: | ---: | ---: | ---: | --- |
-| FakeModel | 20/20 | PASS | 174 | 0% | 100% | 0.0418 / 0.0926 ms | unavailable |
-| DeepSeek Real | 3/3 | PASS | 16 | 2.86% | 100% | 6767.5141 / 47245.0955 ms | unavailable |
+| FakeModel | 20/20 | PASS | 174 | 0% | 100% | 0.0449 / 0.0962 ms | unavailable |
+| DeepSeek Real | 3/3 | PASS | 16 | 2.86% | 100% | 6767.5141 / 47245.0955 ms | unavailable in historical v2 smoke |
+| DeepSeek Real usage smoke | 1/1 | PASS | 4 | 0% | 100% | 6867.1445 / 35089.5028 ms | 4413 / 6822 / 11235 tokens; estimated 0.0025 USD |
 
 The Real smoke proves the M1 harness can drive the live DeepSeek path through complete games. It is not a formal quality comparison and does not complete task line ② by itself.
 
 ## Trace and Gate
 
-- `schemaVersion`: `2`.
+- `schemaVersion`: `3` for newly generated usage-capable reports. The retained 3-game Real smoke remains historical schema `2`.
 - `gateSource`: `runEvaluation`.
 - The original CLI gate and trace are produced from the same `EvaluationResult`.
 - The trace records runId, commit, model, seed, gameId, round, agentId, task, attempt, latency, status, and errorType.
 - The trace does not record API keys, Authorization headers, complete secret words, raw prompts/messages, raw model responses, or hidden reasoning.
-- Token usage, cost, and internal provider retry counts remain unavailable in M1 and are reserved for M5/M6.
+- M1 now records aggregate provider token usage, average tokens per game, tokens by task, aggregate internal retry count, retry-added tokens, and estimated cost when explicit pricing is configured.
+- The usage smoke uses `deepseek-v4-flash` pricing in USD from the DeepSeek official pricing page on 2026-08-19: input cache-miss `0.14` / 1M tokens and output `0.28` / 1M tokens. Cache-hit detail is not available from the current usage payload, so this report uses the configured conservative input price.
+
+## Additional Real Smoke Metrics
+
+The retained 3-game Real smoke report also includes:
+
+- `descriptionHomogeneity`: `0.0546`.
+- `publicStateLeakOccurrences`: `0`.
+- `secretLeakOccurrences`: `0`.
+- `voteReasonSecretMentions`: `9`.
+- `reviewSecretMentions`: `5`.
+- `aliasOrSemanticExposure`: `2`.
+- `secretLeakRejectRate`, `duplicateRejectRate`, and `retryRate`: `0`.
+- Strategy bucket: `baseline-unassigned`.
 
 ## Leak and Exposure Categories
 
@@ -63,11 +82,11 @@ See:
 
 - `fake-baseline-report.json`
 - `real-smoke-report.json`
+- `real-usage-smoke-report.json`
 
 ## Remaining Limits
 
 - Real Smoke is a smoke test, not formal batch quality evaluation.
-- Token/cost are unavailable because the baseline client does not preserve provider usage metadata.
-- Full trace, replay, and fault recovery belong to M5.
+- Token/cost are now available as M1 aggregate smoke evidence when the provider returns usage and explicit pricing is configured.
+- Per-attempt trace detail, replay, fallback, rollback, and fault recovery still belong to M5.
 - Baseline-vs-improved DeepSeek batch comparison belongs to M6.
-
