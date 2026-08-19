@@ -11,6 +11,11 @@ const voteInput = z.object({ targetId: z.string().min(1) });
 export function createApp(model: GameModel = new DeepSeekClient()) {
   const app = express();
   const engine = new GameEngine(model);
+  const progressStreams = new Map<string, Set<express.Response>>();
+  engine.subscribeToPublicProgress((event) => {
+    const payload = `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
+    for (const stream of progressStreams.get(event.gameId) ?? []) stream.write(payload);
+  });
   app.use(express.json({ limit: '16kb' }));
 
   app.get('/api/health', (_request, response) => {
@@ -28,6 +33,31 @@ export function createApp(model: GameModel = new DeepSeekClient()) {
   app.get('/api/games/:id', (request, response, next) => {
     try {
       response.json(engine.getGame(request.params.id));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/api/games/:id/events', (request, response, next) => {
+    try {
+      engine.getGame(request.params.id);
+      response.status(200);
+      response.set({
+        'Cache-Control': 'no-cache, no-transform',
+        Connection: 'keep-alive',
+        'Content-Type': 'text/event-stream',
+      });
+      response.flushHeaders();
+      response.write(`event: ready\ndata: ${JSON.stringify({ gameId: request.params.id })}\n\n`);
+      const streams = progressStreams.get(request.params.id) ?? new Set<express.Response>();
+      streams.add(response);
+      progressStreams.set(request.params.id, streams);
+      const heartbeat = setInterval(() => response.write(': keepalive\n\n'), 15_000);
+      request.on('close', () => {
+        clearInterval(heartbeat);
+        streams.delete(response);
+        if (streams.size === 0) progressStreams.delete(request.params.id);
+      });
     } catch (error) {
       next(error);
     }

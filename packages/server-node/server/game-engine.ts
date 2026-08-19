@@ -6,6 +6,7 @@ import type {
   GameReview,
   GameState,
   Player,
+  PublicProgressEvent,
   PublicGameState,
   Role,
   Vote,
@@ -19,6 +20,14 @@ const AI_PROFILES = [
   { name: '小满', avatar: '满', strategyId: 'contrarian' },
 ] as const;
 
+interface PendingAiVotes {
+  gameId: string;
+  round: number;
+  ballot: number;
+  eligibleTargetIds: string[] | null;
+  promise: Promise<Vote[]>;
+}
+
 export class GameRuleError extends Error {
   constructor(message: string, public readonly status = 400) {
     super(message);
@@ -28,6 +37,8 @@ export class GameRuleError extends Error {
 
 export class GameEngine {
   private readonly games = new Map<string, GameState>();
+  private readonly progressListeners = new Set<(event: PublicProgressEvent) => void>();
+  private readonly pendingAiVotes = new Map<string, PendingAiVotes>();
 
   constructor(
     private readonly model: GameModel,
@@ -88,6 +99,11 @@ export class GameEngine {
     return this.requireGame(id);
   }
 
+  subscribeToPublicProgress(listener: (event: PublicProgressEvent) => void): () => void {
+    this.progressListeners.add(listener);
+    return () => this.progressListeners.delete(listener);
+  }
+
   async submitHumanDescription(id: string, text: string): Promise<PublicGameState> {
     const game = this.requireGame(id);
     this.assertPhase(game, 'describing');
@@ -118,7 +134,7 @@ export class GameEngine {
     if (!human.alive) throw new GameRuleError('你已出局，请继续观战');
     this.validateVoteTarget(game, human, targetId);
 
-    const aiVotes = await this.generateVotes(game);
+    const aiVotes = await this.consumePendingAiVotes(game);
     const target = game.players.find((player) => player.id === targetId)!;
     const roundVotes: Vote[] = [
       {
@@ -132,6 +148,7 @@ export class GameEngine {
     ];
     game.votes.push(...roundVotes);
     await this.resolveBallot(game, roundVotes);
+    this.prefetchAiVotes(game);
     return this.toPublic(game);
   }
 
@@ -147,9 +164,10 @@ export class GameEngine {
         await this.generateDescriptions(game);
         this.enterVoting(game);
       } else {
-        const votes = await this.generateVotes(game);
+        const votes = await this.consumePendingAiVotes(game);
         game.votes.push(...votes);
         await this.resolveBallot(game, votes);
+        this.prefetchAiVotes(game);
       }
     }
     if (safety >= 12 && !this.isFinished(game)) {
@@ -178,12 +196,33 @@ export class GameEngine {
 
   private commitDescription(game: GameState, description: Description): void {
     game.descriptions.push(description);
-    game.events.push({
+    const event: GameState['events'][number] = {
       id: randomUUID(),
       type: 'description',
       text: description.text,
       round: description.round,
       playerId: description.playerId,
+    };
+    game.events.push(event);
+    const nextSpeaker = game.players.find(
+      (player) => !player.isHuman && player.alive && !game.descriptions.some(
+        (item) => item.round === game.round && item.playerId === player.id,
+      ),
+    );
+    this.emitPublicProgress({
+      type: 'description_published',
+      gameId: game.id,
+      description: {
+        ...description,
+        playerName: game.players.find((player) => player.id === description.playerId)?.name ?? '未知玩家',
+      },
+      event,
+      phase: 'describing',
+      progress: {
+        completed: game.descriptions.filter((item) => item.round === game.round).length,
+        total: game.players.filter((player) => player.alive).length,
+        nextSpeaker: nextSpeaker ? { playerId: nextSpeaker.id, playerName: nextSpeaker.name } : null,
+      },
     });
   }
 
@@ -191,12 +230,59 @@ export class GameEngine {
     game.phase = 'voting';
     game.ballot = 1;
     game.eligibleTargetIds = null;
-    game.events.push({
+    const event: GameState['events'][number] = {
       id: randomUUID(),
       type: 'system',
       text: '所有人描述完毕。观察措辞，投出你最怀疑的一票。',
       round: game.round,
+    };
+    game.events.push(event);
+    this.emitPublicProgress({
+      type: 'phase_changed',
+      gameId: game.id,
+      phase: game.phase,
+      round: game.round,
+      ballot: game.ballot,
+      eligibleTargetIds: game.eligibleTargetIds,
+      event,
     });
+    this.prefetchAiVotes(game);
+  }
+
+  private prefetchAiVotes(game: GameState): void {
+    if (game.phase !== 'voting') return;
+    const existing = this.pendingAiVotes.get(game.id);
+    if (existing && this.matchesPendingVotes(existing, game)) return;
+    const pending: PendingAiVotes = {
+      gameId: game.id,
+      round: game.round,
+      ballot: game.ballot,
+      eligibleTargetIds: game.eligibleTargetIds ? [...game.eligibleTargetIds] : null,
+      promise: this.generateVotes(game),
+    };
+    this.pendingAiVotes.set(game.id, pending);
+    void pending.promise.catch(() => {
+      if (this.pendingAiVotes.get(game.id) === pending) this.pendingAiVotes.delete(game.id);
+    });
+  }
+
+  private async consumePendingAiVotes(game: GameState): Promise<Vote[]> {
+    const pending = this.pendingAiVotes.get(game.id);
+    if (!pending || !this.matchesPendingVotes(pending, game)) return this.generateVotes(game);
+    this.pendingAiVotes.delete(game.id);
+    return pending.promise;
+  }
+
+  private matchesPendingVotes(pending: PendingAiVotes, game: GameState): boolean {
+    const eligible = game.eligibleTargetIds ? [...game.eligibleTargetIds] : null;
+    return pending.gameId === game.id
+      && pending.round === game.round
+      && pending.ballot === game.ballot
+      && JSON.stringify(pending.eligibleTargetIds) === JSON.stringify(eligible);
+  }
+
+  private emitPublicProgress(event: PublicProgressEvent): void {
+    for (const listener of this.progressListeners) listener(event);
   }
 
   private async generateVotes(game: GameState): Promise<Vote[]> {
