@@ -5,13 +5,14 @@ import { z } from 'zod';
 import { DescriptionQualityError } from './description-quality.js';
 import { GameEngine, GameRuleError } from './game-engine.js';
 import { DeepSeekClient, ModelError, type GameModel } from './model.js';
+import { createTraceSinkFromEnv } from './trace.js';
 
 const descriptionInput = z.object({ text: z.string() });
 const voteInput = z.object({ targetId: z.string().min(1) });
 
 export function createApp(model: GameModel = new DeepSeekClient()) {
   const app = express();
-  const engine = new GameEngine(model);
+  const engine = new GameEngine(model, Math.random, undefined, createTraceSinkFromEnv());
   const progressStreams = new Map<string, Set<express.Response>>();
   engine.subscribeToPublicProgress((event) => {
     const payload = `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
@@ -119,7 +120,17 @@ export function createApp(model: GameModel = new DeepSeekClient()) {
         return;
       }
       if (error instanceof ModelError) {
-        response.status(502).json({ error: error.message });
+        response.status(502).json({
+          error: error.message,
+          diagnostic: error.diagnostic
+            ? {
+                errorType: error.diagnostic.errorType,
+                httpStatus: error.diagnostic.httpStatus,
+                retryable: error.diagnostic.retryable,
+                attempt: error.diagnostic.attempt,
+              }
+            : undefined,
+        });
         return;
       }
       if (error instanceof DescriptionQualityError) {

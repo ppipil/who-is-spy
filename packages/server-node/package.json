@@ -8,6 +8,8 @@
     "start": "NODE_ENV=production tsx server/index.ts",
     "build": "tsc --noEmit",
     "eval": "tsx server/eval-cli.ts",
+    "fault-demo": "tsx server/fault-demo-cli.ts",
+    "replay": "tsx server/replay-cli.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

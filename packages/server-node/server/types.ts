@@ -117,7 +117,10 @@ export interface AgentContext {
     word: string;
   };
   game: {
+    gameId: string;
     round: number;
+    phase: Phase;
+    ballot: number;
     alivePlayers: Array<{ id: string; name: string }>;
     publicDescriptions: Array<{ playerId: string; playerName: string; text: string; round: number }>;
     publicEliminations: Array<{ text: string; round: number }>;

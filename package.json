@@ -20,6 +20,8 @@
     "build": "npm run build --workspace packages/web && npm run build --workspace packages/server-node",
     "test:node": "npm test --workspace packages/server-node",
     "eval:node": "npm run eval --workspace packages/server-node --",
+    "fault-demo": "npm run fault-demo --workspace packages/server-node --",
+    "replay": "npm run replay --workspace packages/server-node --",
     "test:go": "cd packages/server-go && go test ./...",
     "contract:node": "node contract/run.mjs node",
     "contract:go": "node contract/run.mjs go",

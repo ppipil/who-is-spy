@@ -20,6 +20,7 @@ import type {
   Role,
   Vote,
 } from './types.js';
+import type { TraceSink } from './trace.js';
 import { chooseWordPair } from './words.js';
 
 const AI_PROFILES = [
@@ -34,7 +35,7 @@ interface PendingAiVotes {
   round: number;
   ballot: number;
   eligibleTargetIds: string[] | null;
-  promise: Promise<Vote[]>;
+  promise: Promise<{ ok: true; votes: Vote[] } | { ok: false; error: unknown }>;
 }
 
 export class GameRuleError extends Error {
@@ -54,7 +55,10 @@ export class GameEngine {
     private readonly model: GameModel,
     private readonly random: () => number = Math.random,
     private readonly onQualityViolation: (event: DescriptionQualityEvent) => void = () => undefined,
-  ) {}
+    private readonly traceSink?: TraceSink,
+  ) {
+    if (traceSink) this.model.setTraceSink?.(traceSink);
+  }
 
   createGame(): PublicGameState {
     const pair = chooseWordPair(this.random);
@@ -257,6 +261,7 @@ export class GameEngine {
       playerId: description.playerId,
     };
     game.events.push(event);
+    this.tracePublicEvent(game, event.type, description.playerId);
     const nextSpeaker = game.players.find(
       (player) => !player.isHuman && player.alive && !game.descriptions.some(
         (item) => item.round === game.round && item.playerId === player.id,
@@ -290,6 +295,7 @@ export class GameEngine {
       round: game.round,
     };
     game.events.push(event);
+    this.tracePublicEvent(game, event.type);
     this.emitPublicProgress({
       type: 'phase_changed',
       gameId: game.id,
@@ -311,19 +317,23 @@ export class GameEngine {
       round: game.round,
       ballot: game.ballot,
       eligibleTargetIds: game.eligibleTargetIds ? [...game.eligibleTargetIds] : null,
-      promise: this.generateVotes(game),
+      promise: this.generateVotes(game)
+        .then((votes) => ({ ok: true as const, votes }))
+        .catch((error: unknown) => {
+          if (this.pendingAiVotes.get(game.id) === pending) this.pendingAiVotes.delete(game.id);
+          return { ok: false as const, error };
+        }),
     };
     this.pendingAiVotes.set(game.id, pending);
-    void pending.promise.catch(() => {
-      if (this.pendingAiVotes.get(game.id) === pending) this.pendingAiVotes.delete(game.id);
-    });
   }
 
   private async consumePendingAiVotes(game: GameState): Promise<Vote[]> {
     const pending = this.pendingAiVotes.get(game.id);
     if (!pending || !this.matchesPendingVotes(pending, game)) return this.generateVotes(game);
     this.pendingAiVotes.delete(game.id);
-    return pending.promise;
+    const result = await pending.promise;
+    if (!result.ok) throw result.error;
+    return result.votes;
   }
 
   private matchesPendingVotes(pending: PendingAiVotes, game: GameState): boolean {
@@ -371,6 +381,7 @@ export class GameEngine {
         text: `${names} 同票，进入最终加票。`,
         round: game.round,
       });
+      this.tracePublicEvent(game, 'vote_result');
       return;
     }
 
@@ -386,6 +397,7 @@ export class GameEngine {
       round: game.round,
       playerId: eliminated.id,
     });
+    this.tracePublicEvent(game, 'elimination', eliminated.id);
 
     const winner = this.checkWinner(game);
     if (winner) {
@@ -404,6 +416,7 @@ export class GameEngine {
       text: `第 ${game.round} 轮开始。换个角度描述，别让身份暴露。`,
       round: game.round,
     });
+    this.tracePublicEvent(game, 'system');
   }
 
   private checkWinner(game: GameState): Role | null {
@@ -418,6 +431,20 @@ export class GameEngine {
     try {
       return await this.model.review(game);
     } catch {
+      this.traceSink?.record({
+        eventType: 'model_call',
+        gameId: game.id,
+        round: game.round,
+        phase: game.phase,
+        ballot: game.ballot,
+        task: 'review',
+        agentId: 'review',
+        agentName: '复盘',
+        attempt: 1,
+        latencyMs: 0,
+        willRetry: false,
+        outcome: 'fallback',
+      });
       const undercover = game.players.find((player) => player.role === 'undercover')!;
       return {
         headline: game.winner === 'civilian' ? '平民锁定了那处微妙偏差' : '卧底把相似性利用到了最后',
@@ -485,6 +512,21 @@ export class GameEngine {
 
   private assertPhase(game: GameState, phase: GameState['phase']): void {
     if (game.phase !== phase) throw new GameRuleError(`当前不在${phase === 'describing' ? '描述' : '投票'}阶段`);
+  }
+
+  private tracePublicEvent(game: GameState, publicEventType: string, agentId?: string): void {
+    const player = agentId ? game.players.find((candidate) => candidate.id === agentId) : undefined;
+    this.traceSink?.record({
+      eventType: 'public_event',
+      gameId: game.id,
+      round: game.round,
+      phase: game.phase,
+      ballot: game.ballot,
+      publicEventType,
+      agentId,
+      agentName: player?.name,
+      outcome: 'success',
+    });
   }
 
   private isFinished(game: GameState): boolean {

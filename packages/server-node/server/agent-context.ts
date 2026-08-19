@@ -16,7 +16,10 @@ export function buildAgentContext(game: GameState, agent: Player): AgentContext 
       word: agent.word,
     },
     game: {
+      gameId: game.id,
       round: game.round,
+      phase: game.phase,
+      ballot: game.ballot,
       alivePlayers: game.players
         .filter((player) => player.alive)
         .map(({ id, name }) => ({ id, name })),

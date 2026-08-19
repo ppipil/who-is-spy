@@ -48,7 +48,10 @@ function context(strategyId: AgentStrategyId): AgentContext {
       word: '相同测试词',
     },
     game: {
+      gameId: 'test-game',
       round: 1,
+      phase: 'describing',
+      ballot: 1,
       alivePlayers: [
         { id: 'target-1', name: '目标甲' },
         { id: 'target-2', name: '目标乙' },
