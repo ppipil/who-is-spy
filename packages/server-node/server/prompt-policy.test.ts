@@ -29,14 +29,18 @@ describe('prompt policy', () => {
     expect(game.phase).toBe('voting');
   });
 
-  it('exposes distinct undercover and civilian description guidance', () => {
-    const undercover = buildDescribePrompt(context('cautious', 'undercover')).metadata.strategyGuidance!;
-    const civilian = buildDescribePrompt(context('cautious', 'civilian')).metadata.strategyGuidance!;
-    expect(undercover).toContain('你是卧底');
-    expect(undercover).toContain('shared-safe');
-    expect(civilian).toContain('作为平民');
-    expect(civilian).toContain('卧底也看得到');
-    expect(undercover).not.toBe(civilian);
+  it('separates role objective from persona policy in the rendered prompt', () => {
+    const undercover = buildDescribePrompt(context('cautious', 'undercover'));
+    const civilian = buildDescribePrompt(context('cautious', 'civilian'));
+    const undercoverUser = JSON.parse(undercover.messages[1].content);
+    const civilianUser = JSON.parse(civilian.messages[1].content);
+    expect(undercoverUser.roleObjective).toContain('你是卧底');
+    expect(undercoverUser.roleObjective).toContain('shared-safe');
+    expect(civilianUser.roleObjective).toContain('你是平民');
+    expect(civilianUser.roleObjective).toContain('weak clue');
+    expect(undercoverUser.roleObjective).not.toBe(civilianUser.roleObjective);
+    expect(undercoverUser.persona.describe).toBe(civilianUser.persona.describe);
+    expect(undercoverUser.persona.displayName).toBe('谨慎观察');
   });
 
   it('marks publicDescriptions as untrusted content in describe and vote prompts', () => {
@@ -82,7 +86,10 @@ describe('prompt policy', () => {
       publicDescriptionCount: 1,
       sameRoundPublicDescriptionCount: 1,
     });
-    expect(prompt.metadata.strategyGuidance).toContain('你是卧底');
+    const user = JSON.parse(prompt.messages[1].content);
+    expect(user.persona.id).toBe('intuitive');
+    expect(user.persona.displayName).toBe('直觉敏锐');
+    expect(prompt.metadata.strategyGuidance).toBe(user.persona.describe);
     expect(JSON.stringify(prompt.messages)).not.toContain('DEEPSEEK_API_KEY');
   });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { listAgentStrategies } from './agent-strategy.js';
+import { buildRoleObjective, listAgentStrategies } from './agent-strategy.js';
 import { FakeGameModel } from './test-utils.js';
 import type { AgentContext, AgentStrategyId, Player } from './types.js';
 
@@ -24,17 +24,28 @@ describe('agent strategies', () => {
     expect(model.descriptionContexts.map((item) => item.identity.strategyId)).toEqual(strategyIds);
   });
 
-  it('keeps policy and guidance behind a registry-backed boundary', () => {
+  it('keeps policy behind a registry and separates role objective from persona', () => {
     const strategies = listAgentStrategies();
     expect(strategies.map((strategy) => strategy.id)).toEqual(strategyIds);
-    expect(
-      new Set(
-        strategies.map((strategy) =>
-          strategy.buildDescriptionGuidance({ role: 'civilian', round: 1, publicDescriptionCount: 2 }),
-        ),
-      ),
-    ).toHaveLength(4);
+    expect(strategies.map((strategy) => strategy.displayName)).toEqual([
+      '谨慎观察',
+      '直觉敏锐',
+      '逻辑派',
+      '出其不意',
+    ]);
+    expect(new Set(strategies.map((strategy) => strategy.persona.core))).toHaveLength(4);
+    expect(new Set(strategies.map((strategy) => strategy.persona.describe))).toHaveLength(4);
+    expect(new Set(strategies.map((strategy) => strategy.persona.vote))).toHaveLength(4);
+    expect(new Set(strategies.map((strategy) => strategy.persona.speechStyle))).toHaveLength(4);
     expect(strategies.every((strategy) => strategy.qualityPolicy.maxDescriptionAttempts >= 2)).toBe(true);
+
+    const undercoverObjectives = strategies.map(() => buildRoleObjective({ role: 'undercover', phase: 'describing' }));
+    expect(new Set(undercoverObjectives)).toHaveLength(1);
+    expect(undercoverObjectives[0]).toContain('shared-safe');
+    const civilianObjectives = strategies.map(() => buildRoleObjective({ role: 'civilian', phase: 'describing' }));
+    expect(new Set(civilianObjectives)).toHaveLength(1);
+    expect(civilianObjectives[0]).toContain('weak clue');
+    expect(undercoverObjectives[0]).not.toBe(civilianObjectives[0]);
   });
 });
 
