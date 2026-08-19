@@ -74,11 +74,36 @@ export interface RecoveryActionTraceEvent {
   recoveryOutcome?: 'recovered' | 'exhausted';
 }
 
-export type RuntimeTraceEvent = ModelCallTraceEvent | PublicRuntimeTraceEvent | RecoveryActionTraceEvent;
+export interface PromptProvenanceTraceEvent {
+  eventType: 'prompt_provenance';
+  timestamp: string;
+  sequence: number;
+  gameId: string;
+  round: number;
+  task: ModelTask;
+  agentId: string;
+  role?: string;
+  strategyId?: string;
+  promptTemplateVersion: string;
+  promptHash: string;
+  model: string;
+  temperature: number;
+  publicDescriptionCount: number;
+  sameRoundPublicDescriptionCount: number;
+  strategyGuidance?: string;
+  repairViolationType?: string;
+}
+
+export type RuntimeTraceEvent =
+  | ModelCallTraceEvent
+  | PublicRuntimeTraceEvent
+  | RecoveryActionTraceEvent
+  | PromptProvenanceTraceEvent;
 export type RuntimeTraceDraft =
   | Omit<ModelCallTraceEvent, 'timestamp' | 'sequence'>
   | Omit<PublicRuntimeTraceEvent, 'timestamp' | 'sequence'>
-  | Omit<RecoveryActionTraceEvent, 'timestamp' | 'sequence'>;
+  | Omit<RecoveryActionTraceEvent, 'timestamp' | 'sequence'>
+  | Omit<PromptProvenanceTraceEvent, 'timestamp' | 'sequence'>;
 
 export interface TraceSink {
   record(event: RuntimeTraceDraft): void;
@@ -145,6 +170,9 @@ export function formatTraceLine(event: RuntimeTraceEvent): string {
     const outcome = event.recoveryOutcome === 'recovered' ? '恢复成功' : event.recoveryOutcome === 'exhausted' ? '恢复耗尽' : '';
     return `#${event.sequence} 第${event.round}轮 描述阶段 · ↳ 手动恢复 ${displayAgent(event.agentId, event.agentName)} #${event.manualResumeIndex}（剩余 ${event.manualRetriesRemaining} 次）${outcome}`;
   }
+  if (event.eventType === 'prompt_provenance') {
+    return `#${event.sequence} 第${event.round}轮 · 溯源 ${displayAgent(event.agentId)} ${event.task} ${event.promptTemplateVersion} hash=${event.promptHash.slice(0, 12)}（公开 ${event.publicDescriptionCount}，同轮 ${event.sameRoundPublicDescriptionCount}）`;
+  }
   const icon = event.outcome === 'success' ? '✓' : event.outcome === 'fallback' ? '↳' : '✗';
   const actor = displayAgent(event.agentId, event.agentName);
   const error = event.errorType ? ` ${errorLabel(event.errorType)} errorType=${event.errorType}${event.httpStatus ? ` HTTP=${event.httpStatus}` : ''}` : '';
@@ -200,6 +228,7 @@ function formatReplayEvent(event: RuntimeTraceEvent): string[] {
       `↳ 手动恢复 ${displayAgent(event.agentId, event.agentName)} #${event.manualResumeIndex}（剩余 ${event.manualRetriesRemaining} 次）${outcome}`,
     ];
   }
+  if (event.eventType === 'prompt_provenance') return [];
   if (event.outcome === 'success') {
     if (event.task === 'vote' && !hasNearbyFailure(event)) return [];
     const suffix = event.task === 'vote' ? '成功（私有候选，等待整批结算）' : '成功';
@@ -242,6 +271,7 @@ function formatGroupedVoteReplay(events: RuntimeTraceEvent[]): string[] {
       lines.push(...formatReplayEvent(event));
       continue;
     }
+    if (event.eventType === 'prompt_provenance') continue;
     if (event.task === 'vote' && voteBatch === 0) {
       voteBatch += 1;
       lines.push('【第一次 ballot batch：私有预生成】');
