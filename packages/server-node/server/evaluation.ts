@@ -1,17 +1,23 @@
 import { performance } from 'node:perf_hooks';
 import { GameEngine } from './game-engine.js';
 import type { GameModel } from './model.js';
-import { DeepSeekClient } from './model.js';
+import { DeepSeekClient, ModelError } from './model.js';
 import { FakeGameModel } from './test-utils.js';
 import type { AgentContext, GameReview, GameState, Player, PublicGameState, Role } from './types.js';
 
 export type EvaluationModelKind = 'fake' | 'real';
+export type EvaluationErrorType = 'timeout' | 'http' | 'schema' | 'validation' | 'secret' | 'unknown' | null;
+export type EvaluationTask = 'describe' | 'vote' | 'review';
+
+export const EVALUATION_SCHEMA_VERSION = 2;
 
 export interface EvaluationOptions {
   games: number;
   seed: number;
   modelKind: EvaluationModelKind;
   model?: GameModel;
+  commit?: string;
+  runId?: string;
 }
 
 export interface StrategyEvaluationMetrics {
@@ -41,14 +47,71 @@ export interface EvaluationMetrics {
     secretLeakOccurrences: number;
     publicStateLeakOccurrences: number;
     illegalStateOccurrences: number;
+    descriptionExactSecretLeaks: number;
+    voteReasonSecretMentions: number;
+    reviewSecretMentions: number;
+    aliasOrSemanticExposure: number;
   };
 }
 
 export interface EvaluationResult {
-  schemaVersion: 1;
+  schemaVersion: 2;
+  run: {
+    runId: string;
+    commit: string;
+    startedAt: string;
+    finishedAt: string;
+    durationMs: number;
+    gateSource: 'runEvaluation';
+    scenario: { seed: number; games: number };
+    unavailable: {
+      tokenUsage: true;
+      cost: true;
+      internalProviderRetries: true;
+    };
+  };
   configuration: { games: number; seed: number; model: EvaluationModelKind };
   metrics: EvaluationMetrics;
+  trace: {
+    games: EvaluationGameTrace[];
+    modelCalls: EvaluationModelCallTrace[];
+  };
   gate: { passed: boolean; failures: string[] };
+}
+
+export interface EvaluationModelCallTrace {
+  runId: string;
+  gameId: string | null;
+  round: number;
+  agentId: string;
+  task: EvaluationTask;
+  attempt: number;
+  latencyMs: number;
+  status: 'success' | 'failure';
+  errorType: EvaluationErrorType;
+  httpStatus: number | null;
+  schemaFields: string[];
+}
+
+export interface EvaluationGameTrace {
+  gameId: string;
+  completed: boolean;
+  winner: Role | null;
+  timeline: Array<{
+    order: number;
+    round: number;
+    type: 'description' | 'vote' | 'vote_result' | 'elimination' | 'review';
+    actorId?: string;
+    targetId?: string;
+    text?: string;
+    reason?: string;
+  }>;
+  leakSummary: {
+    descriptionExactSecretLeaks: number;
+    voteReasonSecretMentions: number;
+    reviewSecretMentions: number;
+    aliasOrSemanticExposure: number;
+  };
 }
 
 interface MutableStrategyMetrics {
@@ -59,6 +122,7 @@ interface MutableStrategyMetrics {
 }
 
 interface Instrumentation {
+  runId: string;
   descriptionAttempts: number;
   voteAttempts: number;
   reviewAttempts: number;
@@ -66,6 +130,8 @@ interface Instrumentation {
   validVotes: number;
   latencies: number[];
   strategyVotes: Map<string, { votes: number; accurateVotes: number }>;
+  currentGameId: string | null;
+  modelCalls: EvaluationModelCallTrace[];
 }
 
 class InstrumentedModel implements GameModel {
@@ -84,7 +150,7 @@ class InstrumentedModel implements GameModel {
 
   async describe(context: AgentContext): Promise<string> {
     this.instrumentation.descriptionAttempts += 1;
-    return this.measure(() => this.delegate.describe(context));
+    return this.measure('describe', context, () => this.delegate.describe(context));
   }
 
   async vote(
@@ -93,7 +159,7 @@ class InstrumentedModel implements GameModel {
   ): Promise<{ targetId: string; reason: string }> {
     this.instrumentation.voteAttempts += 1;
     try {
-      const result = await this.measure(() => this.delegate.vote(context, allowedTargets));
+      const result = await this.measure('vote', context, () => this.delegate.vote(context, allowedTargets));
       const target = allowedTargets.find((candidate) => candidate.id === result.targetId);
       const strategyId = strategyIdOfContext(context);
       const group = this.instrumentation.strategyVotes.get(strategyId) ?? { votes: 0, accurateVotes: 0 };
@@ -103,6 +169,18 @@ class InstrumentedModel implements GameModel {
         if (target.role === 'undercover') group.accurateVotes += 1;
       } else {
         this.instrumentation.invalidOutputs += 1;
+        const call = [...this.instrumentation.modelCalls]
+          .reverse()
+          .find(
+            (candidate) =>
+              candidate.task === 'vote' &&
+              candidate.agentId === context.identity.playerId &&
+              candidate.round === context.game.round,
+          );
+        if (call) {
+          call.status = 'failure';
+          call.errorType = 'validation';
+        }
       }
       this.instrumentation.strategyVotes.set(strategyId, group);
       return result;
@@ -113,19 +191,46 @@ class InstrumentedModel implements GameModel {
 
   async review(game: GameState): Promise<GameReview> {
     this.instrumentation.reviewAttempts += 1;
-    return this.measure(() => this.delegate.review(game));
+    return this.measure('review', game, () => this.delegate.review(game));
   }
 
-  private async measure<T>(operation: () => Promise<T>): Promise<T> {
+  private async measure<T>(
+    task: 'describe' | 'vote' | 'review',
+    context: AgentContext | GameState,
+    operation: () => Promise<T>,
+  ): Promise<T> {
     const startedAt = performance.now();
+    const call = this.createCallTrace(task, context);
     try {
-      return await operation();
+      const result = await operation();
+      call.status = 'success';
+      return result;
     } catch (error) {
       this.instrumentation.invalidOutputs += 1;
+      call.status = 'failure';
+      Object.assign(call, classifyModelCallError(error));
       throw error;
     } finally {
-      this.instrumentation.latencies.push(performance.now() - startedAt);
+      call.latencyMs = round(performance.now() - startedAt);
+      this.instrumentation.latencies.push(call.latencyMs);
+      this.instrumentation.modelCalls.push(call);
     }
+  }
+
+  private createCallTrace(task: EvaluationTask, context: AgentContext | GameState): EvaluationModelCallTrace {
+    return {
+      runId: this.instrumentation.runId,
+      gameId: this.instrumentation.currentGameId,
+      round: 'round' in context ? context.round : context.game.round,
+      agentId: 'identity' in context ? context.identity.playerId : 'review',
+      task,
+      attempt: 1,
+      latencyMs: 0,
+      status: 'success',
+      errorType: null,
+      httpStatus: null,
+      schemaFields: [],
+    };
   }
 }
 
@@ -133,8 +238,13 @@ export async function runEvaluation(options: EvaluationOptions): Promise<Evaluat
   if (!Number.isInteger(options.games) || options.games < 1) throw new Error('--games must be a positive integer');
   if (!Number.isInteger(options.seed)) throw new Error('--seed must be an integer');
 
+  const startedAt = new Date();
+  const startedMs = performance.now();
+  const runId =
+    options.runId ?? `eval-${options.modelKind}-seed-${options.seed}-${startedAt.toISOString().replace(/[:.]/g, '-')}`;
   const random = mulberry32(options.seed);
   const instrumentation: Instrumentation = {
+    runId,
     descriptionAttempts: 0,
     voteAttempts: 0,
     reviewAttempts: 0,
@@ -142,6 +252,8 @@ export async function runEvaluation(options: EvaluationOptions): Promise<Evaluat
     validVotes: 0,
     latencies: [],
     strategyVotes: new Map(),
+    currentGameId: null,
+    modelCalls: [],
   };
   const delegate = options.model ?? (options.modelKind === 'fake' ? new FakeGameModel() : new DeepSeekClient());
   if (!delegate.isConfigured()) throw new Error(`model ${delegate.model} is not configured`);
@@ -151,12 +263,17 @@ export async function runEvaluation(options: EvaluationOptions): Promise<Evaluat
   let secretLeakOccurrences = 0;
   let publicStateLeakOccurrences = 0;
   let illegalStateOccurrences = 0;
+  let voteReasonSecretMentions = 0;
+  let reviewSecretMentions = 0;
+  let aliasOrSemanticExposure = 0;
   const pairSimilarities: number[] = [];
   const strategyMetrics = new Map<string, MutableStrategyMetrics>();
+  const games: EvaluationGameTrace[] = [];
 
   for (let gameIndex = 0; gameIndex < options.games; gameIndex += 1) {
     const engine = new GameEngine(model, random);
     let publicGame = engine.createGame();
+    instrumentation.currentGameId = publicGame.id;
     publicStateLeakOccurrences += countPublicStateLeaks(publicGame);
     try {
       publicGame = await driveGame(engine, publicGame);
@@ -169,9 +286,21 @@ export async function runEvaluation(options: EvaluationOptions): Promise<Evaluat
         illegalStateOccurrences += 1;
       }
       secretLeakOccurrences += countSecretLeaks(internal);
+      const leakSummary = collectLeakSummary(internal);
+      voteReasonSecretMentions += leakSummary.voteReasonSecretMentions;
+      reviewSecretMentions += leakSummary.reviewSecretMentions;
+      aliasOrSemanticExposure += leakSummary.aliasOrSemanticExposure;
       pairSimilarities.push(...descriptionPairSimilarities(internal));
+      games.push(buildGameTrace(internal, publicGame, leakSummary));
     } catch {
       illegalStateOccurrences += 1;
+      const internal = engine.getInternalGame(publicGame.id);
+      const leakSummary = collectLeakSummary(internal);
+      secretLeakOccurrences += leakSummary.descriptionExactSecretLeaks;
+      voteReasonSecretMentions += leakSummary.voteReasonSecretMentions;
+      reviewSecretMentions += leakSummary.reviewSecretMentions;
+      aliasOrSemanticExposure += leakSummary.aliasOrSemanticExposure;
+      games.push(buildGameTrace(internal, publicGame, leakSummary));
     }
   }
 
@@ -209,7 +338,15 @@ export async function runEvaluation(options: EvaluationOptions): Promise<Evaluat
       ]),
     ),
     descriptionHomogeneity: average(pairSimilarities),
-    safety: { secretLeakOccurrences, publicStateLeakOccurrences, illegalStateOccurrences },
+    safety: {
+      secretLeakOccurrences,
+      publicStateLeakOccurrences,
+      illegalStateOccurrences,
+      descriptionExactSecretLeaks: secretLeakOccurrences,
+      voteReasonSecretMentions,
+      reviewSecretMentions,
+      aliasOrSemanticExposure,
+    },
   };
 
   const failures: string[] = [];
@@ -219,10 +356,22 @@ export async function runEvaluation(options: EvaluationOptions): Promise<Evaluat
   if (illegalStateOccurrences > 0) failures.push('evaluation games must not enter illegal or incomplete state');
   if (metrics.validVoteRate !== 1) failures.push('validVoteRate must equal 1.0');
 
+  const finishedAt = new Date();
   return {
-    schemaVersion: 1,
+    schemaVersion: EVALUATION_SCHEMA_VERSION,
+    run: {
+      runId,
+      commit: options.commit ?? process.env.EVALUATION_COMMIT ?? 'unknown',
+      startedAt: startedAt.toISOString(),
+      finishedAt: finishedAt.toISOString(),
+      durationMs: round(performance.now() - startedMs),
+      gateSource: 'runEvaluation',
+      scenario: { seed: options.seed, games: options.games },
+      unavailable: { tokenUsage: true, cost: true, internalProviderRetries: true },
+    },
     configuration: { games: options.games, seed: options.seed, model: options.modelKind },
     metrics,
+    trace: { games, modelCalls: instrumentation.modelCalls },
     gate: { passed: failures.length === 0, failures },
   };
 }
@@ -255,10 +404,92 @@ function countPublicStateLeaks(game: PublicGameState): number {
 }
 
 function countSecretLeaks(game: GameState): number {
+  return collectLeakSummary(game).descriptionExactSecretLeaks;
+}
+
+function collectLeakSummary(game: GameState): EvaluationGameTrace['leakSummary'] {
   const secrets = [...new Set(game.players.map((player) => player.word))];
-  return game.descriptions.filter((description) =>
+  const descriptionExactSecretLeaks = game.descriptions.filter((description) =>
     secrets.some((secret) => description.text.includes(secret)),
   ).length;
+  const voteReasonSecretMentions = game.votes.filter((vote) =>
+    secrets.some((secret) => vote.reason.includes(secret)),
+  ).length;
+  const reviewText = game.review
+    ? `${game.review.headline} ${game.review.summary} ${game.review.turningPoints.join(' ')} ${game.review.playerInsights
+        .map((item) => item.insight)
+        .join(' ')}`
+    : '';
+  const reviewSecretMentions = reviewText ? secrets.filter((secret) => reviewText.includes(secret)).length : 0;
+  const aliasOrSemanticExposure = [...game.descriptions.map((item) => item.text), ...game.votes.map((item) => item.reason), reviewText]
+    .filter((text) => secrets.some((secret) => secretAliases(secret).some((alias) => text.includes(alias)))).length;
+  return {
+    descriptionExactSecretLeaks,
+    voteReasonSecretMentions,
+    reviewSecretMentions,
+    aliasOrSemanticExposure,
+  };
+}
+
+function buildGameTrace(
+  game: GameState,
+  publicGame: PublicGameState,
+  leakSummary: EvaluationGameTrace['leakSummary'],
+): EvaluationGameTrace {
+  const timeline: EvaluationGameTrace['timeline'] = [];
+  for (const description of game.descriptions) {
+    timeline.push({
+      order: timeline.length + 1,
+      round: description.round,
+      type: 'description',
+      actorId: description.playerId,
+      text: sanitizeForPlayer(game, description.playerId, description.text),
+    });
+  }
+  for (const vote of game.votes) {
+    timeline.push({
+      order: timeline.length + 1,
+      round: vote.round,
+      type: 'vote',
+      actorId: vote.voterId,
+      targetId: vote.targetId,
+      reason: sanitizeForPlayer(game, vote.voterId, vote.reason),
+    });
+  }
+  const publicEvents = game.events.filter(
+    (item): item is (typeof game.events)[number] & { type: 'vote_result' | 'elimination' } =>
+      item.type === 'vote_result' || item.type === 'elimination',
+  );
+  for (const event of publicEvents) {
+    timeline.push({
+      order: timeline.length + 1,
+      round: event.round,
+      type: event.type,
+      actorId: event.playerId,
+      text: sanitizeNeutral(game, event.text),
+    });
+  }
+  if (game.review) {
+    timeline.push({
+      order: timeline.length + 1,
+      round: game.round,
+      type: 'review',
+      actorId: 'review',
+      text: sanitizeNeutral(
+        game,
+        `${game.review.headline} ${game.review.summary} ${game.review.turningPoints.join(' ')}`,
+      ),
+    });
+  }
+  return {
+    gameId: publicGame.id,
+    completed: publicGame.phase === 'finished' && Boolean(publicGame.winner),
+    winner: publicGame.winner,
+    timeline: timeline
+      .sort((left, right) => left.round - right.round || left.order - right.order)
+      .map((entry, index) => ({ ...entry, order: index + 1 })),
+    leakSummary,
+  };
 }
 
 function collectStrategyOutcomes(
@@ -346,4 +577,51 @@ function ratio(numerator: number, denominator: number): number {
 
 function round(value: number): number {
   return Math.round(value * 10_000) / 10_000;
+}
+
+function sanitizeForPlayer(game: GameState, playerId: string, value: string): string {
+  const actor = game.players.find((player) => player.id === playerId);
+  return [...new Set(game.players.map((player) => player.word))].reduce((text, secret) => {
+    const replacement = actor && actor.word === secret ? '[SELF_SECRET]' : '[OTHER_SECRET]';
+    const exactRedacted = text.split(secret).join(replacement);
+    return secretAliases(secret).reduce(
+      (aliasRedacted, alias) => aliasRedacted.split(alias).join(`${replacement}_ALIAS`),
+      exactRedacted,
+    );
+  }, value);
+}
+
+function sanitizeNeutral(game: GameState, value: string): string {
+  return [...new Set(game.players.map((player) => player.word))].reduce(
+    (text, secret) => {
+      const exactRedacted = text.split(secret).join('[SECRET]');
+      return secretAliases(secret).reduce(
+        (aliasRedacted, alias) => aliasRedacted.split(alias).join('[SECRET_ALIAS]'),
+        exactRedacted,
+      );
+    },
+    value,
+  );
+}
+
+function secretAliases(secret: string): string[] {
+  const aliases: Record<string, string[]> = {
+    雨伞: ['伞具', '伞'],
+    雨衣: ['雨披', '防水衣'],
+  };
+  return aliases[secret] ?? [];
+}
+
+function classifyModelCallError(error: unknown): Pick<
+  EvaluationModelCallTrace,
+  'errorType' | 'httpStatus' | 'schemaFields'
+> {
+  if (error instanceof ModelError && error.diagnostic) {
+    return {
+      errorType: error.diagnostic.errorType,
+      httpStatus: error.diagnostic.httpStatus ?? null,
+      schemaFields: error.diagnostic.schemaFields ?? [],
+    };
+  }
+  return { errorType: 'unknown', httpStatus: null, schemaFields: [] };
 }
