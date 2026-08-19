@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { getAgentStrategy } from './agent-strategy.js';
+import type { DescriptionRequest } from './description-quality.js';
 import type { AgentContext, GameReview, GameState, Player } from './types.js';
 
 const descriptionSchema = z.object({
@@ -39,7 +40,7 @@ interface ChatMessage {
 export interface GameModel {
   readonly model: string;
   isConfigured(): boolean;
-  describe(context: AgentContext): Promise<string>;
+  describe(context: AgentContext, request?: DescriptionRequest): Promise<string>;
   vote(context: AgentContext, allowedTargets: Player[]): Promise<{ targetId: string; reason: string }>;
   review(game: GameState): Promise<GameReview>;
 }
@@ -59,7 +60,7 @@ export class DeepSeekClient implements GameModel {
     return this.apiKey.length > 0;
   }
 
-  async describe(context: AgentContext): Promise<string> {
+  async describe(context: AgentContext, request?: DescriptionRequest): Promise<string> {
     const strategy = getAgentStrategy(context.identity.strategyId);
     const messages: ChatMessage[] = [
       {
@@ -79,6 +80,7 @@ export class DeepSeekClient implements GameModel {
               publicDescriptionCount: context.game.publicDescriptions.length,
             }),
           },
+          repair: request?.repair,
           context,
           output: { description: 'string', private_reasoning_summary: 'string' },
         }),

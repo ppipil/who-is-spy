@@ -27,7 +27,7 @@ const STRATEGIES: Record<AgentStrategyId, AgentStrategy> = {
       `第${round}轮优先选择低暴露、宽类别的共同属性；保留一个可解释的细节，不追求抢眼。`,
     buildVoteGuidance: ({ publicDescriptionCount }) =>
       `先列证据再下结论；若${publicDescriptionCount}条公开描述仍不足，降低对单一措辞的确信度。`,
-    qualityPolicy: { maxDescriptionAttempts: 2, duplicateSimilarityThreshold: 0.76 },
+    qualityPolicy: { maxDescriptionAttempts: 2, duplicateSimilarityThreshold: 0.72 },
   },
   intuitive: {
     id: 'intuitive',
@@ -45,7 +45,7 @@ const STRATEGIES: Record<AgentStrategyId, AgentStrategy> = {
       `从用途、类别或边界条件挑一个维度做对比；作为${role === 'undercover' ? '卧底' : '平民'}仍不得明示身份或答案。`,
     buildVoteGuidance: () =>
       '逐项比较类别、用途和限制条件的矛盾，优先选择与多数公开特征不兼容的目标。',
-    qualityPolicy: { maxDescriptionAttempts: 2, duplicateSimilarityThreshold: 0.78 },
+    qualityPolicy: { maxDescriptionAttempts: 2, duplicateSimilarityThreshold: 0.72 },
   },
   contrarian: {
     id: 'contrarian',
@@ -54,7 +54,7 @@ const STRATEGIES: Record<AgentStrategyId, AgentStrategy> = {
       `避免复述已有${publicDescriptionCount}条描述的主流角度；寻找成立但不显眼的反例、场景或限制。`,
     buildVoteGuidance: () =>
       '主动检查跟票偏差，寻找刻意迎合共识或异常安全的表达；没有公开证据时不要为了反对而反对。',
-    qualityPolicy: { maxDescriptionAttempts: 3, duplicateSimilarityThreshold: 0.68 },
+    qualityPolicy: { maxDescriptionAttempts: 3, duplicateSimilarityThreshold: 0.72 },
   },
 };
 
@@ -65,4 +65,3 @@ export function getAgentStrategy(id: AgentStrategyId): AgentStrategy {
 export function listAgentStrategies(): AgentStrategy[] {
   return Object.values(STRATEGIES);
 }
-

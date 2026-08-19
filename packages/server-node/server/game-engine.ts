@@ -1,5 +1,14 @@
 import { randomUUID } from 'node:crypto';
+import { getAgentStrategy } from './agent-strategy.js';
 import { buildAgentContext } from './agent-context.js';
+import {
+  DescriptionQualityError,
+  DescriptionQualityGate,
+  normalizeDescription,
+  repairGuidance,
+  type DescriptionQualityEvent,
+  type DescriptionQualityViolation,
+} from './description-quality.js';
 import type { GameModel } from './model.js';
 import type {
   Description,
@@ -39,10 +48,12 @@ export class GameEngine {
   private readonly games = new Map<string, GameState>();
   private readonly progressListeners = new Set<(event: PublicProgressEvent) => void>();
   private readonly pendingAiVotes = new Map<string, PendingAiVotes>();
+  private readonly qualityGate = new DescriptionQualityGate();
 
   constructor(
     private readonly model: GameModel,
     private readonly random: () => number = Math.random,
+    private readonly onQualityViolation: (event: DescriptionQualityEvent) => void = () => undefined,
   ) {}
 
   createGame(): PublicGameState {
@@ -182,12 +193,54 @@ export class GameEngine {
     );
     const agents = game.players.filter((player) => !player.isHuman && player.alive && !describedPlayerIds.has(player.id));
     const outputs: Description[] = [];
+    const allSecrets = [...new Set(game.players.map((player) => player.word))];
     for (const agent of agents) {
-      const description = {
-        playerId: agent.id,
-        text: await this.model.describe(buildAgentContext(game, agent)),
-        round: game.round,
-      };
+      const context = buildAgentContext(game, agent);
+      const strategy = getAgentStrategy(context.identity.strategyId);
+      const acceptedSameRound = game.descriptions
+        .filter((description) => description.round === game.round)
+        .map((description) => description.text);
+      let violation: DescriptionQualityViolation | undefined;
+      let acceptedText: string | undefined;
+      for (let attempt = 1; attempt <= strategy.qualityPolicy.maxDescriptionAttempts; attempt += 1) {
+        const text = normalizeDescription(
+          await this.model.describe(context, {
+            attempt,
+            ...(violation
+              ? { repair: { violationType: violation.type, guidance: repairGuidance(violation) } }
+              : {}),
+          }),
+        );
+        violation =
+          this.qualityGate.check({
+            text,
+            allSecrets,
+            acceptedSameRound,
+            duplicateSimilarityThreshold: strategy.qualityPolicy.duplicateSimilarityThreshold,
+          }) ?? undefined;
+        if (!violation) {
+          acceptedText = text;
+          break;
+        }
+        const willRetry = attempt < strategy.qualityPolicy.maxDescriptionAttempts;
+        this.onQualityViolation({
+          gameId: game.id,
+          round: game.round,
+          agentId: agent.id,
+          strategyId: strategy.id,
+          attempt,
+          violationType: violation.type,
+          ...(violation.similarity === undefined ? {} : { similarity: violation.similarity }),
+          willRetry,
+        });
+      }
+      if (acceptedText === undefined) {
+        throw new DescriptionQualityError(
+          'AI 描述未通过质量检查，状态未推进；请重试本次行动',
+          violation?.type ?? 'empty',
+        );
+      }
+      const description = { playerId: agent.id, text: acceptedText, round: game.round };
       this.commitDescription(game, description);
       outputs.push(description);
     }

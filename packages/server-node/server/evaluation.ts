@@ -1,5 +1,6 @@
 import { performance } from 'node:perf_hooks';
 import { GameEngine } from './game-engine.js';
+import type { DescriptionQualityEvent } from './description-quality.js';
 import type { GameModel } from './model.js';
 import { DeepSeekClient } from './model.js';
 import { FakeGameModel } from './test-utils.js';
@@ -66,6 +67,7 @@ interface Instrumentation {
   validVotes: number;
   latencies: number[];
   strategyVotes: Map<string, { votes: number; accurateVotes: number }>;
+  qualityViolations: DescriptionQualityEvent[];
 }
 
 class InstrumentedModel implements GameModel {
@@ -142,6 +144,7 @@ export async function runEvaluation(options: EvaluationOptions): Promise<Evaluat
     validVotes: 0,
     latencies: [],
     strategyVotes: new Map(),
+    qualityViolations: [],
   };
   const delegate = options.model ?? (options.modelKind === 'fake' ? new FakeGameModel() : new DeepSeekClient());
   if (!delegate.isConfigured()) throw new Error(`model ${delegate.model} is not configured`);
@@ -155,7 +158,7 @@ export async function runEvaluation(options: EvaluationOptions): Promise<Evaluat
   const strategyMetrics = new Map<string, MutableStrategyMetrics>();
 
   for (let gameIndex = 0; gameIndex < options.games; gameIndex += 1) {
-    const engine = new GameEngine(model, random);
+    const engine = new GameEngine(model, random, (event) => instrumentation.qualityViolations.push(event));
     let publicGame = engine.createGame();
     publicStateLeakOccurrences += countPublicStateLeaks(publicGame);
     try {
@@ -188,11 +191,20 @@ export async function runEvaluation(options: EvaluationOptions): Promise<Evaluat
     completedGames,
     completionRate: ratio(completedGames, options.games),
     descriptionAttempts: instrumentation.descriptionAttempts,
-    secretLeakRejectRate: 0,
-    duplicateRejectRate: 0,
+    secretLeakRejectRate: ratio(
+      instrumentation.qualityViolations.filter((event) => event.violationType === 'secret_leak').length,
+      instrumentation.descriptionAttempts,
+    ),
+    duplicateRejectRate: ratio(
+      instrumentation.qualityViolations.filter((event) => event.violationType === 'duplicate_description').length,
+      instrumentation.descriptionAttempts,
+    ),
     invalidOutputRate: ratio(instrumentation.invalidOutputs, modelAttempts),
     validVoteRate: ratio(instrumentation.validVotes, instrumentation.voteAttempts),
-    retryRate: 0,
+    retryRate: ratio(
+      instrumentation.qualityViolations.filter((event) => event.willRetry).length,
+      instrumentation.descriptionAttempts,
+    ),
     latencyMs: {
       p50: percentile(instrumentation.latencies, 0.5),
       p95: percentile(instrumentation.latencies, 0.95),

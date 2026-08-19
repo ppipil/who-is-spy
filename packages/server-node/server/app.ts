@@ -2,6 +2,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { z } from 'zod';
+import { DescriptionQualityError } from './description-quality.js';
 import { GameEngine, GameRuleError } from './game-engine.js';
 import { DeepSeekClient, ModelError, type GameModel } from './model.js';
 
@@ -119,6 +120,10 @@ export function createApp(model: GameModel = new DeepSeekClient()) {
       }
       if (error instanceof ModelError) {
         response.status(502).json({ error: error.message });
+        return;
+      }
+      if (error instanceof DescriptionQualityError) {
+        response.status(502).json({ error: error.message, violationType: error.violationType });
         return;
       }
       console.error(error);
