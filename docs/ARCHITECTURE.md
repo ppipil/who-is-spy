@@ -31,9 +31,9 @@ AI profiles carry stable `strategyId` values into `Player`, then into the allowl
 
 The phase changes to `voting` only after the final required AI description succeeds. If an Agent throws—including the fourth—the already-public prefix is retained and the phase remains `describing`; the failed and later players contribute no description. This is an intentional partial-round state, with retry/recovery deferred to M5. Tests observe prefix sizes `0, 1, 2, 3`, verify each success is externally visible before the next AI begins, and inject a fourth-Agent failure to verify the retained three-AI prefix.
 
-The browser starts the normal `POST /describe` action once and refreshes the existing public `GET /api/games/:id` endpoint while it is pending. That small polling loop surfaces each committed description and event without streaming provider data or exposing any private model input/output. It stops before applying the final action response, so a delayed poll cannot overwrite the transition to `voting`.
+The browser starts the normal `POST /describe` action once and subscribes to `GET /api/games/:id/events` with Server-Sent Events while it is pending. The SSE channel carries only public progress events (`description_published` and `phase_changed`), so THE ROUND TABLE and the public record update one committed description at a time without exposing roles, words, provider prompts, provider responses, or private reasoning. The final `/describe` response remains the convergence point if the stream disconnects.
 
-Voting remains `Promise.all` over one snapshot. `AgentContext` contains no votes, so current-ballot choices cannot influence later voters.
+When the final description moves the game into `voting`, AI votes are generated privately in parallel and bound to `gameId + round + ballot + eligibleTargetIds`. They are not written to `GameState.votes` and cannot trigger adjudication before the Human submits. If ballot 1 ties, ballot 2 has a new eligible-target set and gets a fresh prefetch. `AgentContext` contains no current-ballot Human vote, so this is a latency optimization rather than a rules change.
 
 ## Planned quality and observability
 

@@ -1,11 +1,11 @@
 {
   "schemaVersion": 4,
   "run": {
-    "runId": "m3-real-sequential-smoke-seed-42",
-    "commit": "8ce7f23",
-    "startedAt": "2026-08-19T09:50:02.939Z",
-    "finishedAt": "2026-08-19T09:52:51.678Z",
-    "durationMs": 168740.527,
+    "runId": "m3-final-real-sequential-sse-prefetch-seed-42",
+    "commit": "1f3cf9e",
+    "startedAt": "2026-08-19T11:09:27.452Z",
+    "finishedAt": "2026-08-19T11:13:50.477Z",
+    "durationMs": 263025.9631,
     "gateSource": "runEvaluation",
     "scenario": {
       "seed": 42,
@@ -26,42 +26,42 @@
     "startedGames": 3,
     "completedGames": 3,
     "completionRate": 1,
-    "descriptionAttempts": 12,
+    "descriptionAttempts": 15,
     "secretLeakRejectRate": 0,
     "duplicateRejectRate": 0,
     "invalidOutputRate": 0,
     "validVoteRate": 1,
     "retryRate": 0,
     "latencyMs": {
-      "p50": 5013.7933,
-      "p95": 16715.952
+      "p50": 7680.3248,
+      "p95": 27263.8088
     },
     "tokenUsage": {
-      "input": 17517,
-      "output": 21942,
-      "total": 39459,
+      "input": 21096,
+      "output": 30883,
+      "total": 51979,
       "averagePerGame": {
-        "input": 5839,
-        "output": 7314,
-        "total": 13153
+        "input": 7032,
+        "output": 10294.3333,
+        "total": 17326.3333
       },
       "byTask": {
         "describe": {
-          "input": 5612,
-          "output": 8479,
-          "total": 14091,
+          "input": 7497,
+          "output": 12839,
+          "total": 20336,
           "retryAddedTokens": 0
         },
         "vote": {
-          "input": 8392,
-          "output": 9435,
-          "total": 17827,
+          "input": 8495,
+          "output": 11140,
+          "total": 19635,
           "retryAddedTokens": 0
         },
         "review": {
-          "input": 3513,
-          "output": 4028,
-          "total": 7541,
+          "input": 5104,
+          "output": 6904,
+          "total": 12008,
           "retryAddedTokens": 0
         }
       },
@@ -77,10 +77,10 @@
       "outputTokenPricePer1M": 0.28,
       "priceSource": "https://api-docs.deepseek.com/quick_start/pricing/",
       "priceSourceDate": "2026-08-19",
-      "inputCost": 0.0025,
-      "outputCost": 0.0061,
-      "totalCost": 0.0086,
-      "averageCostPerGame": 0.0029,
+      "inputCost": 0.003,
+      "outputCost": 0.0086,
+      "totalCost": 0.0116,
+      "averageCostPerGame": 0.0039,
       "formula": "(inputTokens / 1,000,000 * inputTokenPricePer1M) + (outputTokens / 1,000,000 * outputTokenPricePer1M)"
     },
     "byStrategyId": {
@@ -88,25 +88,25 @@
         "games": 3,
         "wins": 2,
         "votes": 4,
-        "accurateVotes": 3,
+        "accurateVotes": 1,
         "winRate": 0.6667,
-        "voteAccuracy": 0.75
+        "voteAccuracy": 0.25
       },
       "cautious": {
         "games": 3,
         "wins": 3,
-        "votes": 4,
+        "votes": 3,
         "accurateVotes": 3,
         "winRate": 1,
-        "voteAccuracy": 0.75
+        "voteAccuracy": 1
       },
       "contrarian": {
         "games": 3,
         "wins": 3,
         "votes": 4,
-        "accurateVotes": 4,
+        "accurateVotes": 3,
         "winRate": 1,
-        "voteAccuracy": 1
+        "voteAccuracy": 0.75
       },
       "intuitive": {
         "games": 3,
@@ -117,21 +117,21 @@
         "voteAccuracy": 0.5
       }
     },
-    "descriptionHomogeneity": 0.0211,
+    "descriptionHomogeneity": 0.0051,
     "safety": {
       "secretLeakOccurrences": 0,
       "publicStateLeakOccurrences": 0,
       "illegalStateOccurrences": 0,
       "descriptionExactSecretLeaks": 0,
-      "voteReasonSecretMentions": 10,
+      "voteReasonSecretMentions": 7,
       "reviewSecretMentions": 5,
-      "aliasOrSemanticExposure": 6
+      "aliasOrSemanticExposure": 5
     }
   },
   "trace": {
     "games": [
       {
-        "gameId": "d3b72047-a333-4ea6-aa53-a10ef368f55a",
+        "gameId": "0f6dff73-c003-483c-aa52-3e0a3742755f",
         "completed": true,
         "winner": "civilian",
         "timeline": [
@@ -147,28 +147,28 @@
             "round": 1,
             "type": "description",
             "actorId": "ai-1",
-            "text": "下雨天能帮上忙的装备"
+            "text": "天气不好时出门，常会有人穿它"
           },
           {
             "order": 3,
             "round": 1,
             "type": "description",
             "actorId": "ai-2",
-            "text": "撑起一片小小的晴天"
+            "text": "看着窗外的雨丝，我下意识摸了摸包，确认那个小东西还在。"
           },
           {
             "order": 4,
             "round": 1,
             "type": "description",
             "actorId": "ai-3",
-            "text": "雨天骑行时比撑[OTHER_SECRET]_ALIAS更方便"
+            "text": "它和[OTHER_SECRET]_ALIAS的功能类似，但可以折得很小塞进口袋。"
           },
           {
             "order": 5,
             "round": 1,
             "type": "description",
             "actorId": "ai-4",
-            "text": "折起来能塞进口袋，展开却能罩住全身"
+            "text": "风大的时候穿上它，下摆容易飘起来，不太服帖。"
           },
           {
             "order": 6,
@@ -184,15 +184,15 @@
             "type": "vote",
             "actorId": "ai-1",
             "targetId": "ai-2",
-            "reason": "该描述更像撑[OTHER_SECRET]_ALIAS而非[SELF_SECRET]，怀疑其词语不同"
+            "reason": "弥生说包中小东西更像[OTHER_SECRET]_ALIAS，与[SELF_SECRET]的穿用特征不符。"
           },
           {
             "order": 8,
             "round": 1,
             "type": "vote",
             "actorId": "ai-2",
-            "targetId": "ai-4",
-            "reason": "描述“展开罩住全身”更像[OTHER_SECRET]，不像[SELF_SECRET]。"
+            "targetId": "ai-3",
+            "reason": "直接提及[SELF_SECRET]_ALIAS的功能，折叠塞口袋更像[SELF_SECRET]_ALIAS而非[OTHER_SECRET]。"
           },
           {
             "order": 9,
@@ -200,7 +200,7 @@
             "type": "vote",
             "actorId": "ai-3",
             "targetId": "ai-2",
-            "reason": "撑起一片晴天更像[OTHER_SECRET]_ALIAS，与[SELF_SECRET]有异"
+            "reason": "描述像随身携带的折叠[OTHER_SECRET]_ALIAS，未体现[SELF_SECRET]穿着特征"
           },
           {
             "order": 10,
@@ -208,7 +208,7 @@
             "type": "vote",
             "actorId": "ai-4",
             "targetId": "ai-2",
-            "reason": "描述中“撑起”更像[OTHER_SECRET]，与[SELF_SECRET]不符，疑似卧底"
+            "reason": "弥生的描述过于模糊，回避具体用途和形态，疑似卧底隐藏身份。"
           },
           {
             "order": 11,
@@ -222,18 +222,18 @@
             "round": 1,
             "type": "review",
             "actorId": "review",
-            "text": "卧底首轮因一句“撑起”暴露，平民三票锁定胜局 首轮描述中，卧底弥生用“撑起一片小小的晴天”暴露了[SECRET]的专属动作，而老墨、小满分别用“骑行比撑[SECRET_ALIAS]方便”“展开罩住全身”准确锚定[SECRET]意象。投票阶段，虽然你误投了描述普通的阿序，但阿序、老墨、小满三人从“撑”字识破弥生的[SECRET_ALIAS]身份，卧底首轮被高票出局，平民阵营获胜。 弥生首轮描述“撑起一片小小的晴天”中，“撑起”是[SECRET]的典型动作，与[SECRET]的穿戴方式明显不符，成为全场最大破绽。 小满“展开却能罩住全身”和老墨“雨天骑行时比撑[SECRET_ALIAS]更方便”的描述，强化了[SECRET]与[SECRET]的关键差异，为平民阵营提供了清晰的识别参照。 投票阶段弥生试图反咬小满“更像[SECRET]”以转移视线，但阿序、老墨、小满三票均指向弥生，卧底未能干扰主流判断，首轮即被淘汰。"
+            "text": "第一轮描述即暴露，弥生因'摸包确认小东西'被平民阵营锁定出局 本局为'[SECRET]vs[SECRET]'对抗。第一轮描述中，平民阵营的多数人（阿序、老墨、小满）都准确指向[SECRET]的穿着特征，而卧底弥生的描述'摸包确认小东西'明显更贴近便携[SECRET]，且老墨一句'与[SECRET_ALIAS]功能类似'进一步强化了对比。投票阶段，三名平民不约而同投出弥生，尽管人类玩家误投阿序，但平民阵营仍以绝对票数淘汰卧底，轻松获胜。 弥生第一轮描述'确认包中小东西还在'，暗示物品是随身携带的[SECRET]而非穿着的[SECRET]，成为最显眼的卧底信号。 老墨描述'和[SECRET_ALIAS]的功能类似'，虽为平民发言却无意间点出[SECRET]与[SECRET]的关联，反而放大了弥生描述的异常。 第一轮投票中，阿序、老墨、小满集体投弥生，形成压倒性共识，卧底无还手之力。"
           }
         ],
         "leakSummary": {
           "descriptionExactSecretLeaks": 0,
-          "voteReasonSecretMentions": 4,
+          "voteReasonSecretMentions": 3,
           "reviewSecretMentions": 2,
-          "aliasOrSemanticExposure": 6
+          "aliasOrSemanticExposure": 5
         }
       },
       {
-        "gameId": "25068eec-5d15-42f3-89cd-735ef4bcb895",
+        "gameId": "d6bda9d2-533c-48ea-a685-15be096e8b9e",
         "completed": true,
         "winner": "civilian",
         "timeline": [
@@ -249,28 +249,28 @@
             "round": 1,
             "type": "description",
             "actorId": "ai-1",
-            "text": "它能把远处的景物拉近到眼前"
+            "text": "一种用来观察、看清东西的器具。"
           },
           {
             "order": 3,
             "round": 1,
             "type": "description",
             "actorId": "ai-2",
-            "text": "小时候总想用它来看清夜空里的秘密"
+            "text": "远处的山和树，一下子拉到了眼前。"
           },
           {
             "order": 4,
             "round": 1,
             "type": "description",
             "actorId": "ai-3",
-            "text": "它让人看得更远，但太近的东西反而看不清"
+            "text": "和眼镜不同，它不是帮你看清近处，而是让你望见更远。"
           },
           {
             "order": 5,
             "round": 1,
             "type": "description",
             "actorId": "ai-4",
-            "text": "它也有无能为力的时候，比如隔着墙就什么也看不见。"
+            "text": "它对强光可不太友好，正对太阳会很伤眼。"
           },
           {
             "order": 6,
@@ -285,24 +285,24 @@
             "round": 1,
             "type": "vote",
             "actorId": "ai-1",
-            "targetId": "ai-4",
-            "reason": "描述强调无能为力，与常见[SELF_SECRET]体验略有出入，略显刻意"
+            "targetId": "human",
+            "reason": "描述过于模糊，缺乏关键特征，最可疑。"
           },
           {
             "order": 8,
             "round": 1,
             "type": "vote",
             "actorId": "ai-2",
-            "targetId": "ai-4",
-            "reason": "小满说隔墙看不见，措辞抽象且未点出望远特征，像在绕开具体概念。"
+            "targetId": "human",
+            "reason": "只说“常见体验”，避实就虚，缺乏特征，像在绕开概念。"
           },
           {
             "order": 9,
             "round": 1,
             "type": "vote",
             "actorId": "ai-3",
-            "targetId": "human",
-            "reason": "描述笼统，无指向性特征，最可疑。"
+            "targetId": "ai-1",
+            "reason": "描述过于宽泛，未提拉近远物，疑点最大"
           },
           {
             "order": 10,
@@ -310,78 +310,32 @@
             "type": "vote",
             "actorId": "ai-4",
             "targetId": "human",
-            "reason": "描述过于抽象，没有具体特征，有意回避关键信息。"
+            "reason": "你的描述过于模糊，缺乏关键特征，可能是卧底在回避暴露。"
           },
           {
             "order": 11,
-            "round": 1,
-            "type": "vote",
-            "actorId": "human",
-            "targetId": "ai-4",
-            "reason": "我认为 小满 的描述最可疑"
-          },
-          {
-            "order": 12,
-            "round": 1,
-            "type": "vote",
-            "actorId": "ai-1",
-            "targetId": "human",
-            "reason": "你的描述太过宽泛，没有指向具体事物，疑似在掩饰身份。"
-          },
-          {
-            "order": 13,
-            "round": 1,
-            "type": "vote",
-            "actorId": "ai-2",
-            "targetId": "human",
-            "reason": "描述过于模糊，未提供任何具体特征，试图隐藏身份。"
-          },
-          {
-            "order": 14,
-            "round": 1,
-            "type": "vote",
-            "actorId": "ai-3",
-            "targetId": "human",
-            "reason": "描述过于笼统，缺乏与[SELF_SECRET]具体特征的匹配，有混淆嫌疑。"
-          },
-          {
-            "order": 15,
-            "round": 1,
-            "type": "vote",
-            "actorId": "ai-4",
-            "targetId": "human",
-            "reason": "描述过于笼统且缺少与[SELF_SECRET]相关的具体特征"
-          },
-          {
-            "order": 16,
-            "round": 1,
-            "type": "vote_result",
-            "text": "小满、你 同票，进入最终加票。"
-          },
-          {
-            "order": 17,
             "round": 1,
             "type": "elimination",
             "actorId": "human",
             "text": "你 被投出局。身份将在终局揭晓。"
           },
           {
-            "order": 18,
+            "order": 12,
             "round": 1,
             "type": "review",
             "actorId": "review",
-            "text": "模糊开局成致命伤：卧底首轮即遭平民集体识破 游戏仅进行一轮，卧底“你”因描述“常见体验”过于宽泛，与平民们具体指向[SECRET]的表述形成鲜明对比。首轮投票即与平民小满打成平手进入加票，加票阶段除小满外其余玩家全部转投卧底，导致卧底首轮出局，平民阵营速胜。 卧底首轮描述“常见体验”缺乏任何具体特征，成为后续被集中怀疑的根源。 首轮投票小满与卧底同票，为关键转折——加票时所有平民迅速统一意见，将卧底投出。 小满虽一度被误投，但加票时选择投卧底，未造成平民内部分裂，促成平民速胜。"
+            "text": "卧底首轮描述过于模糊，遭三名平民齐指首轮出局 本局仅进行了一轮描述与投票。四位平民（阿序、弥生、老墨、小满）均围绕“[SECRET]”给出了特征鲜明的描述：阿序概括其为‘观察器具’，弥生强调‘拉近远物’，老墨与眼镜对比突出‘望更远’，小满补充‘怕强光’；而卧底（你）仅以‘常见体验’一带而过，明显缺乏关键特征，瞬间成为焦点。投票中，阿序、弥生、小满均根据描述的具体性质疑你，老墨则误投阿序，最终你以3票出局，平民阵营即刻获胜。 卧底描述‘常见体验’过于空泛，与平民描述的具体性形成鲜明对比，成为全场最大疑点。 三名平民（阿序、弥生、小满）在投票阶段同时锁定卧底，即使老墨误投阿序，也未能改变卧底首轮被淘汰的结局。"
           }
         ],
         "leakSummary": {
           "descriptionExactSecretLeaks": 0,
-          "voteReasonSecretMentions": 3,
+          "voteReasonSecretMentions": 0,
           "reviewSecretMentions": 1,
           "aliasOrSemanticExposure": 0
         }
       },
       {
-        "gameId": "e6343c53-6e60-4d2d-8f32-c880e087256d",
+        "gameId": "97d82e66-26dc-433b-b291-7b12152ed60b",
         "completed": true,
         "winner": "civilian",
         "timeline": [
@@ -397,28 +351,28 @@
             "round": 1,
             "type": "description",
             "actorId": "ai-1",
-            "text": "一种大家常用来打发时间的休闲方式"
+            "text": "一种大家都会接触的视听形式"
           },
           {
             "order": 3,
             "round": 1,
             "type": "description",
             "actorId": "ai-2",
-            "text": "通常几十集，每集讲一个小片段，连着看会入迷"
+            "text": "屏幕亮起时，全家围坐一起的那份热闹。"
           },
           {
             "order": 4,
             "round": 1,
             "type": "description",
             "actorId": "ai-3",
-            "text": "通常两个小时左右，一口气讲完一个完整故事"
+            "text": "有固定开场，往往需要专门腾出时间。"
           },
           {
             "order": 5,
             "round": 1,
             "type": "description",
             "actorId": "ai-4",
-            "text": "常常一集结尾就卡在关键处，让你忍不住想看下一集"
+            "text": "有些故事会被拆成许多小节，随时可以停下，也能随时接着看。"
           },
           {
             "order": 6,
@@ -434,15 +388,15 @@
             "type": "vote",
             "actorId": "ai-1",
             "targetId": "ai-3",
-            "reason": "描述更符合[OTHER_SECRET]，与[SELF_SECRET]特征不符"
+            "reason": "描述偏向[OTHER_SECRET]：固定开场、腾出时间，与[SELF_SECRET]分集特征不符。"
           },
           {
             "order": 8,
             "round": 1,
             "type": "vote",
             "actorId": "ai-2",
-            "targetId": "ai-3",
-            "reason": "描述像[OTHER_SECRET]而非[SELF_SECRET]，与词语不符"
+            "targetId": "ai-1",
+            "reason": "描述过于笼统，回避具体特征"
           },
           {
             "order": 9,
@@ -450,34 +404,101 @@
             "type": "vote",
             "actorId": "ai-3",
             "targetId": "ai-1",
-            "reason": "描述太过笼统，未体现剧情连续性特征"
+            "reason": "描述抽象，无法区分[SELF_SECRET]与[OTHER_SECRET]。"
           },
           {
             "order": 10,
             "round": 1,
             "type": "vote",
             "actorId": "ai-4",
-            "targetId": "ai-3",
-            "reason": "描述偏像[OTHER_SECRET]，和[SELF_SECRET]差异大"
+            "targetId": "ai-1",
+            "reason": "描述过于空泛，缺乏具体特征，疑似回避暴露。"
           },
           {
             "order": 11,
             "round": 1,
             "type": "elimination",
+            "actorId": "ai-1",
+            "text": "阿序 被投出局。身份将在终局揭晓。"
+          },
+          {
+            "order": 12,
+            "round": 2,
+            "type": "description",
+            "actorId": "human",
+            "text": "第2轮我想到一种常见体验"
+          },
+          {
+            "order": 13,
+            "round": 2,
+            "type": "description",
+            "actorId": "ai-2",
+            "text": "屏幕那边传来熟悉的旋律，心里就知道又要开始一段旅程了。"
+          },
+          {
+            "order": 14,
+            "round": 2,
+            "type": "description",
+            "actorId": "ai-3",
+            "text": "它通常在整块时间里一次性讲完一个完整故事。"
+          },
+          {
+            "order": 15,
+            "round": 2,
+            "type": "description",
+            "actorId": "ai-4",
+            "text": "有时候并不需要特意空出时间，吃饭时随手放一集也很自然。"
+          },
+          {
+            "order": 16,
+            "round": 2,
+            "type": "vote",
+            "actorId": "human",
+            "targetId": "ai-2",
+            "reason": "我认为 弥生 的描述最可疑"
+          },
+          {
+            "order": 17,
+            "round": 2,
+            "type": "vote",
+            "actorId": "ai-2",
+            "targetId": "ai-3",
+            "reason": "描述指向一次性讲完，更像[OTHER_SECRET]而非[SELF_SECRET]。"
+          },
+          {
+            "order": 18,
+            "round": 2,
+            "type": "vote",
+            "actorId": "ai-3",
+            "targetId": "human",
+            "reason": "描述过于模糊，未提供具体特征，有掩饰嫌疑。"
+          },
+          {
+            "order": 19,
+            "round": 2,
+            "type": "vote",
+            "actorId": "ai-4",
+            "targetId": "ai-3",
+            "reason": "老墨强调完整故事和整块时间，更像[OTHER_SECRET]而非[SELF_SECRET]。"
+          },
+          {
+            "order": 20,
+            "round": 2,
+            "type": "elimination",
             "actorId": "ai-3",
             "text": "老墨 被投出局。身份将在终局揭晓。"
           },
           {
-            "order": 12,
-            "round": 1,
+            "order": 21,
+            "round": 2,
             "type": "review",
             "actorId": "review",
-            "text": "卧底首轮描述暴露，平民迅速锁定并淘汰 在首轮描述中，卧底老墨给出了“通常两个小时左右，一口气讲完一个完整故事”这一典型[SECRET]特征，与平民持有的“[SECRET]”存在明显差异。其余平民均描述了[SECRET]的特征，如多集、分片段、悬念等。投票阶段，除你（human）误投阿序外，其余三名平民均准确指向老墨，最终老墨以3票出局，平民获胜。 老墨在首轮描述中使用“两个小时左右”“完整故事”等[SECRET]专属特征，直接暴露身份 阿序、弥生、小满三人形成共识，一致投票老墨，使平民在首轮便取得决定性优势"
+            "text": "平民误伤友军后迅速纠错，小满精准指标识破卧底 首轮因阿序描述过于笼统而被误投出局，平民方损失一人。进入第二轮后，老墨在描述中强调“整块时间一次性讲完一个完整故事”，与[SECRET]的分集特征明显冲突，被小满和弥生共同指认，卧底暴露。平民方凭借小满对[SECRET]特征的精准锚定，在第二轮成功淘汰卧底，获得胜利。 首轮阿序因‘视听形式’等抽象描述被多数玩家怀疑，惨遭误投，平民方陷入人数劣势。 第二轮老墨在描述中说出‘整块时间一次性讲完一个完整故事’，与[SECRET]的分集播放模式严重不符，成为全场焦点。 小满第二轮以‘吃饭时随手放一集也很自然’强化了[SECRET]的日常化特征，并直接指出老墨的表述更像[SECRET]，引导平民方完成致命一击。"
           }
         ],
         "leakSummary": {
           "descriptionExactSecretLeaks": 0,
-          "voteReasonSecretMentions": 3,
+          "voteReasonSecretMentions": 4,
           "reviewSecretMentions": 2,
           "aliasOrSemanticExposure": 0
         }
@@ -485,13 +506,13 @@
     ],
     "modelCalls": [
       {
-        "runId": "m3-real-sequential-smoke-seed-42",
-        "gameId": "d3b72047-a333-4ea6-aa53-a10ef368f55a",
+        "runId": "m3-final-real-sequential-sse-prefetch-seed-42",
+        "gameId": "0f6dff73-c003-483c-aa52-3e0a3742755f",
         "round": 1,
         "agentId": "ai-1",
         "task": "describe",
         "attempt": 1,
-        "latencyMs": 4041.9897,
+        "latencyMs": 11978.5233,
         "status": "success",
         "errorType": null,
         "httpStatus": null,
@@ -500,13 +521,13 @@
         "sameRoundHumanDescriptionPresent": true
       },
       {
-        "runId": "m3-real-sequential-smoke-seed-42",
-        "gameId": "d3b72047-a333-4ea6-aa53-a10ef368f55a",
+        "runId": "m3-final-real-sequential-sse-prefetch-seed-42",
+        "gameId": "0f6dff73-c003-483c-aa52-3e0a3742755f",
         "round": 1,
         "agentId": "ai-2",
         "task": "describe",
         "attempt": 1,
-        "latencyMs": 4641.966,
+        "latencyMs": 29545.9819,
         "status": "success",
         "errorType": null,
         "httpStatus": null,
@@ -515,13 +536,13 @@
         "sameRoundHumanDescriptionPresent": true
       },
       {
-        "runId": "m3-real-sequential-smoke-seed-42",
-        "gameId": "d3b72047-a333-4ea6-aa53-a10ef368f55a",
+        "runId": "m3-final-real-sequential-sse-prefetch-seed-42",
+        "gameId": "0f6dff73-c003-483c-aa52-3e0a3742755f",
         "round": 1,
         "agentId": "ai-3",
         "task": "describe",
         "attempt": 1,
-        "latencyMs": 4725.7418,
+        "latencyMs": 4020.2962,
         "status": "success",
         "errorType": null,
         "httpStatus": null,
@@ -530,13 +551,13 @@
         "sameRoundHumanDescriptionPresent": true
       },
       {
-        "runId": "m3-real-sequential-smoke-seed-42",
-        "gameId": "d3b72047-a333-4ea6-aa53-a10ef368f55a",
+        "runId": "m3-final-real-sequential-sse-prefetch-seed-42",
+        "gameId": "0f6dff73-c003-483c-aa52-3e0a3742755f",
         "round": 1,
         "agentId": "ai-4",
         "task": "describe",
         "attempt": 1,
-        "latencyMs": 7661.648,
+        "latencyMs": 8473.1898,
         "status": "success",
         "errorType": null,
         "httpStatus": null,
@@ -545,28 +566,13 @@
         "sameRoundHumanDescriptionPresent": true
       },
       {
-        "runId": "m3-real-sequential-smoke-seed-42",
-        "gameId": "d3b72047-a333-4ea6-aa53-a10ef368f55a",
-        "round": 1,
-        "agentId": "ai-1",
-        "task": "vote",
-        "attempt": 1,
-        "latencyMs": 2668.9062,
-        "status": "success",
-        "errorType": null,
-        "httpStatus": null,
-        "schemaFields": [],
-        "sameRoundPublicAiDescriptionCount": null,
-        "sameRoundHumanDescriptionPresent": null
-      },
-      {
-        "runId": "m3-real-sequential-smoke-seed-42",
-        "gameId": "d3b72047-a333-4ea6-aa53-a10ef368f55a",
+        "runId": "m3-final-real-sequential-sse-prefetch-seed-42",
+        "gameId": "0f6dff73-c003-483c-aa52-3e0a3742755f",
         "round": 1,
         "agentId": "ai-3",
         "task": "vote",
         "attempt": 1,
-        "latencyMs": 3887.2489,
+        "latencyMs": 4667.7399,
         "status": "success",
         "errorType": null,
         "httpStatus": null,
@@ -575,13 +581,28 @@
         "sameRoundHumanDescriptionPresent": null
       },
       {
-        "runId": "m3-real-sequential-smoke-seed-42",
-        "gameId": "d3b72047-a333-4ea6-aa53-a10ef368f55a",
+        "runId": "m3-final-real-sequential-sse-prefetch-seed-42",
+        "gameId": "0f6dff73-c003-483c-aa52-3e0a3742755f",
+        "round": 1,
+        "agentId": "ai-1",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 7531.7758,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m3-final-real-sequential-sse-prefetch-seed-42",
+        "gameId": "0f6dff73-c003-483c-aa52-3e0a3742755f",
         "round": 1,
         "agentId": "ai-2",
         "task": "vote",
         "attempt": 1,
-        "latencyMs": 4147.6834,
+        "latencyMs": 7651.3595,
         "status": "success",
         "errorType": null,
         "httpStatus": null,
@@ -590,13 +611,13 @@
         "sameRoundHumanDescriptionPresent": null
       },
       {
-        "runId": "m3-real-sequential-smoke-seed-42",
-        "gameId": "d3b72047-a333-4ea6-aa53-a10ef368f55a",
+        "runId": "m3-final-real-sequential-sse-prefetch-seed-42",
+        "gameId": "0f6dff73-c003-483c-aa52-3e0a3742755f",
         "round": 1,
         "agentId": "ai-4",
         "task": "vote",
         "attempt": 1,
-        "latencyMs": 6656.9242,
+        "latencyMs": 10555.2086,
         "status": "success",
         "errorType": null,
         "httpStatus": null,
@@ -605,13 +626,13 @@
         "sameRoundHumanDescriptionPresent": null
       },
       {
-        "runId": "m3-real-sequential-smoke-seed-42",
-        "gameId": "d3b72047-a333-4ea6-aa53-a10ef368f55a",
+        "runId": "m3-final-real-sequential-sse-prefetch-seed-42",
+        "gameId": "0f6dff73-c003-483c-aa52-3e0a3742755f",
         "round": 1,
         "agentId": "review",
         "task": "review",
         "attempt": 1,
-        "latencyMs": 16715.952,
+        "latencyMs": 27263.8088,
         "status": "success",
         "errorType": null,
         "httpStatus": null,
@@ -620,13 +641,13 @@
         "sameRoundHumanDescriptionPresent": null
       },
       {
-        "runId": "m3-real-sequential-smoke-seed-42",
-        "gameId": "25068eec-5d15-42f3-89cd-735ef4bcb895",
+        "runId": "m3-final-real-sequential-sse-prefetch-seed-42",
+        "gameId": "d6bda9d2-533c-48ea-a685-15be096e8b9e",
         "round": 1,
         "agentId": "ai-1",
         "task": "describe",
         "attempt": 1,
-        "latencyMs": 3221.1497,
+        "latencyMs": 7301.6091,
         "status": "success",
         "errorType": null,
         "httpStatus": null,
@@ -635,13 +656,13 @@
         "sameRoundHumanDescriptionPresent": true
       },
       {
-        "runId": "m3-real-sequential-smoke-seed-42",
-        "gameId": "25068eec-5d15-42f3-89cd-735ef4bcb895",
+        "runId": "m3-final-real-sequential-sse-prefetch-seed-42",
+        "gameId": "d6bda9d2-533c-48ea-a685-15be096e8b9e",
         "round": 1,
         "agentId": "ai-2",
         "task": "describe",
         "attempt": 1,
-        "latencyMs": 5019.8679,
+        "latencyMs": 6494.0807,
         "status": "success",
         "errorType": null,
         "httpStatus": null,
@@ -650,13 +671,13 @@
         "sameRoundHumanDescriptionPresent": true
       },
       {
-        "runId": "m3-real-sequential-smoke-seed-42",
-        "gameId": "25068eec-5d15-42f3-89cd-735ef4bcb895",
+        "runId": "m3-final-real-sequential-sse-prefetch-seed-42",
+        "gameId": "d6bda9d2-533c-48ea-a685-15be096e8b9e",
         "round": 1,
         "agentId": "ai-3",
         "task": "describe",
         "attempt": 1,
-        "latencyMs": 2122.1057,
+        "latencyMs": 7584.9396,
         "status": "success",
         "errorType": null,
         "httpStatus": null,
@@ -665,13 +686,13 @@
         "sameRoundHumanDescriptionPresent": true
       },
       {
-        "runId": "m3-real-sequential-smoke-seed-42",
-        "gameId": "25068eec-5d15-42f3-89cd-735ef4bcb895",
+        "runId": "m3-final-real-sequential-sse-prefetch-seed-42",
+        "gameId": "d6bda9d2-533c-48ea-a685-15be096e8b9e",
         "round": 1,
         "agentId": "ai-4",
         "task": "describe",
         "attempt": 1,
-        "latencyMs": 6772.5648,
+        "latencyMs": 7680.3248,
         "status": "success",
         "errorType": null,
         "httpStatus": null,
@@ -680,43 +701,13 @@
         "sameRoundHumanDescriptionPresent": true
       },
       {
-        "runId": "m3-real-sequential-smoke-seed-42",
-        "gameId": "25068eec-5d15-42f3-89cd-735ef4bcb895",
-        "round": 1,
-        "agentId": "ai-4",
-        "task": "vote",
-        "attempt": 1,
-        "latencyMs": 4630.9991,
-        "status": "success",
-        "errorType": null,
-        "httpStatus": null,
-        "schemaFields": [],
-        "sameRoundPublicAiDescriptionCount": null,
-        "sameRoundHumanDescriptionPresent": null
-      },
-      {
-        "runId": "m3-real-sequential-smoke-seed-42",
-        "gameId": "25068eec-5d15-42f3-89cd-735ef4bcb895",
-        "round": 1,
-        "agentId": "ai-2",
-        "task": "vote",
-        "attempt": 1,
-        "latencyMs": 4851.482,
-        "status": "success",
-        "errorType": null,
-        "httpStatus": null,
-        "schemaFields": [],
-        "sameRoundPublicAiDescriptionCount": null,
-        "sameRoundHumanDescriptionPresent": null
-      },
-      {
-        "runId": "m3-real-sequential-smoke-seed-42",
-        "gameId": "25068eec-5d15-42f3-89cd-735ef4bcb895",
+        "runId": "m3-final-real-sequential-sse-prefetch-seed-42",
+        "gameId": "d6bda9d2-533c-48ea-a685-15be096e8b9e",
         "round": 1,
         "agentId": "ai-1",
         "task": "vote",
         "attempt": 1,
-        "latencyMs": 5149.2725,
+        "latencyMs": 3536.6355,
         "status": "success",
         "errorType": null,
         "httpStatus": null,
@@ -725,58 +716,13 @@
         "sameRoundHumanDescriptionPresent": null
       },
       {
-        "runId": "m3-real-sequential-smoke-seed-42",
-        "gameId": "25068eec-5d15-42f3-89cd-735ef4bcb895",
-        "round": 1,
-        "agentId": "ai-3",
-        "task": "vote",
-        "attempt": 1,
-        "latencyMs": 9799.3126,
-        "status": "success",
-        "errorType": null,
-        "httpStatus": null,
-        "schemaFields": [],
-        "sameRoundPublicAiDescriptionCount": null,
-        "sameRoundHumanDescriptionPresent": null
-      },
-      {
-        "runId": "m3-real-sequential-smoke-seed-42",
-        "gameId": "25068eec-5d15-42f3-89cd-735ef4bcb895",
-        "round": 1,
-        "agentId": "ai-3",
-        "task": "vote",
-        "attempt": 1,
-        "latencyMs": 5013.7933,
-        "status": "success",
-        "errorType": null,
-        "httpStatus": null,
-        "schemaFields": [],
-        "sameRoundPublicAiDescriptionCount": null,
-        "sameRoundHumanDescriptionPresent": null
-      },
-      {
-        "runId": "m3-real-sequential-smoke-seed-42",
-        "gameId": "25068eec-5d15-42f3-89cd-735ef4bcb895",
-        "round": 1,
-        "agentId": "ai-1",
-        "task": "vote",
-        "attempt": 1,
-        "latencyMs": 9892.5529,
-        "status": "success",
-        "errorType": null,
-        "httpStatus": null,
-        "schemaFields": [],
-        "sameRoundPublicAiDescriptionCount": null,
-        "sameRoundHumanDescriptionPresent": null
-      },
-      {
-        "runId": "m3-real-sequential-smoke-seed-42",
-        "gameId": "25068eec-5d15-42f3-89cd-735ef4bcb895",
+        "runId": "m3-final-real-sequential-sse-prefetch-seed-42",
+        "gameId": "d6bda9d2-533c-48ea-a685-15be096e8b9e",
         "round": 1,
         "agentId": "ai-4",
         "task": "vote",
         "attempt": 1,
-        "latencyMs": 9916.521,
+        "latencyMs": 4741.803,
         "status": "success",
         "errorType": null,
         "httpStatus": null,
@@ -785,13 +731,13 @@
         "sameRoundHumanDescriptionPresent": null
       },
       {
-        "runId": "m3-real-sequential-smoke-seed-42",
-        "gameId": "25068eec-5d15-42f3-89cd-735ef4bcb895",
+        "runId": "m3-final-real-sequential-sse-prefetch-seed-42",
+        "gameId": "d6bda9d2-533c-48ea-a685-15be096e8b9e",
         "round": 1,
         "agentId": "ai-2",
         "task": "vote",
         "attempt": 1,
-        "latencyMs": 15325.9391,
+        "latencyMs": 7904.9387,
         "status": "success",
         "errorType": null,
         "httpStatus": null,
@@ -800,13 +746,28 @@
         "sameRoundHumanDescriptionPresent": null
       },
       {
-        "runId": "m3-real-sequential-smoke-seed-42",
-        "gameId": "25068eec-5d15-42f3-89cd-735ef4bcb895",
+        "runId": "m3-final-real-sequential-sse-prefetch-seed-42",
+        "gameId": "d6bda9d2-533c-48ea-a685-15be096e8b9e",
+        "round": 1,
+        "agentId": "ai-3",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 18585.1041,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m3-final-real-sequential-sse-prefetch-seed-42",
+        "gameId": "d6bda9d2-533c-48ea-a685-15be096e8b9e",
         "round": 1,
         "agentId": "review",
         "task": "review",
         "attempt": 1,
-        "latencyMs": 10985.1261,
+        "latencyMs": 19189.5971,
         "status": "success",
         "errorType": null,
         "httpStatus": null,
@@ -815,13 +776,13 @@
         "sameRoundHumanDescriptionPresent": null
       },
       {
-        "runId": "m3-real-sequential-smoke-seed-42",
-        "gameId": "e6343c53-6e60-4d2d-8f32-c880e087256d",
+        "runId": "m3-final-real-sequential-sse-prefetch-seed-42",
+        "gameId": "97d82e66-26dc-433b-b291-7b12152ed60b",
         "round": 1,
         "agentId": "ai-1",
         "task": "describe",
         "attempt": 1,
-        "latencyMs": 2577.7675,
+        "latencyMs": 2705.9414,
         "status": "success",
         "errorType": null,
         "httpStatus": null,
@@ -830,13 +791,13 @@
         "sameRoundHumanDescriptionPresent": true
       },
       {
-        "runId": "m3-real-sequential-smoke-seed-42",
-        "gameId": "e6343c53-6e60-4d2d-8f32-c880e087256d",
+        "runId": "m3-final-real-sequential-sse-prefetch-seed-42",
+        "gameId": "97d82e66-26dc-433b-b291-7b12152ed60b",
         "round": 1,
         "agentId": "ai-2",
         "task": "describe",
         "attempt": 1,
-        "latencyMs": 2378.6968,
+        "latencyMs": 4233.0535,
         "status": "success",
         "errorType": null,
         "httpStatus": null,
@@ -845,13 +806,13 @@
         "sameRoundHumanDescriptionPresent": true
       },
       {
-        "runId": "m3-real-sequential-smoke-seed-42",
-        "gameId": "e6343c53-6e60-4d2d-8f32-c880e087256d",
+        "runId": "m3-final-real-sequential-sse-prefetch-seed-42",
+        "gameId": "97d82e66-26dc-433b-b291-7b12152ed60b",
         "round": 1,
         "agentId": "ai-3",
         "task": "describe",
         "attempt": 1,
-        "latencyMs": 35015.389,
+        "latencyMs": 8180.6879,
         "status": "success",
         "errorType": null,
         "httpStatus": null,
@@ -860,13 +821,13 @@
         "sameRoundHumanDescriptionPresent": true
       },
       {
-        "runId": "m3-real-sequential-smoke-seed-42",
-        "gameId": "e6343c53-6e60-4d2d-8f32-c880e087256d",
+        "runId": "m3-final-real-sequential-sse-prefetch-seed-42",
+        "gameId": "97d82e66-26dc-433b-b291-7b12152ed60b",
         "round": 1,
         "agentId": "ai-4",
         "task": "describe",
         "attempt": 1,
-        "latencyMs": 14988.6424,
+        "latencyMs": 8481.5282,
         "status": "success",
         "errorType": null,
         "httpStatus": null,
@@ -875,13 +836,13 @@
         "sameRoundHumanDescriptionPresent": true
       },
       {
-        "runId": "m3-real-sequential-smoke-seed-42",
-        "gameId": "e6343c53-6e60-4d2d-8f32-c880e087256d",
+        "runId": "m3-final-real-sequential-sse-prefetch-seed-42",
+        "gameId": "97d82e66-26dc-433b-b291-7b12152ed60b",
         "round": 1,
         "agentId": "ai-2",
         "task": "vote",
         "attempt": 1,
-        "latencyMs": 2229.9301,
+        "latencyMs": 4664.2954,
         "status": "success",
         "errorType": null,
         "httpStatus": null,
@@ -890,28 +851,13 @@
         "sameRoundHumanDescriptionPresent": null
       },
       {
-        "runId": "m3-real-sequential-smoke-seed-42",
-        "gameId": "e6343c53-6e60-4d2d-8f32-c880e087256d",
-        "round": 1,
-        "agentId": "ai-1",
-        "task": "vote",
-        "attempt": 1,
-        "latencyMs": 2465.944,
-        "status": "success",
-        "errorType": null,
-        "httpStatus": null,
-        "schemaFields": [],
-        "sameRoundPublicAiDescriptionCount": null,
-        "sameRoundHumanDescriptionPresent": null
-      },
-      {
-        "runId": "m3-real-sequential-smoke-seed-42",
-        "gameId": "e6343c53-6e60-4d2d-8f32-c880e087256d",
+        "runId": "m3-final-real-sequential-sse-prefetch-seed-42",
+        "gameId": "97d82e66-26dc-433b-b291-7b12152ed60b",
         "round": 1,
         "agentId": "ai-4",
         "task": "vote",
         "attempt": 1,
-        "latencyMs": 2758.7708,
+        "latencyMs": 8726.3901,
         "status": "success",
         "errorType": null,
         "httpStatus": null,
@@ -920,13 +866,13 @@
         "sameRoundHumanDescriptionPresent": null
       },
       {
-        "runId": "m3-real-sequential-smoke-seed-42",
-        "gameId": "e6343c53-6e60-4d2d-8f32-c880e087256d",
+        "runId": "m3-final-real-sequential-sse-prefetch-seed-42",
+        "gameId": "97d82e66-26dc-433b-b291-7b12152ed60b",
         "round": 1,
         "agentId": "ai-3",
         "task": "vote",
         "attempt": 1,
-        "latencyMs": 6771.3694,
+        "latencyMs": 12666.7397,
         "status": "success",
         "errorType": null,
         "httpStatus": null,
@@ -935,13 +881,118 @@
         "sameRoundHumanDescriptionPresent": null
       },
       {
-        "runId": "m3-real-sequential-smoke-seed-42",
-        "gameId": "e6343c53-6e60-4d2d-8f32-c880e087256d",
+        "runId": "m3-final-real-sequential-sse-prefetch-seed-42",
+        "gameId": "97d82e66-26dc-433b-b291-7b12152ed60b",
         "round": 1,
+        "agentId": "ai-1",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 16026.0996,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m3-final-real-sequential-sse-prefetch-seed-42",
+        "gameId": "97d82e66-26dc-433b-b291-7b12152ed60b",
+        "round": 2,
+        "agentId": "ai-2",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 12929.4109,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 0,
+        "sameRoundHumanDescriptionPresent": true
+      },
+      {
+        "runId": "m3-final-real-sequential-sse-prefetch-seed-42",
+        "gameId": "97d82e66-26dc-433b-b291-7b12152ed60b",
+        "round": 2,
+        "agentId": "ai-3",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 6002.3643,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 1,
+        "sameRoundHumanDescriptionPresent": true
+      },
+      {
+        "runId": "m3-final-real-sequential-sse-prefetch-seed-42",
+        "gameId": "97d82e66-26dc-433b-b291-7b12152ed60b",
+        "round": 2,
+        "agentId": "ai-4",
+        "task": "describe",
+        "attempt": 1,
+        "latencyMs": 23053.8519,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": 2,
+        "sameRoundHumanDescriptionPresent": true
+      },
+      {
+        "runId": "m3-final-real-sequential-sse-prefetch-seed-42",
+        "gameId": "97d82e66-26dc-433b-b291-7b12152ed60b",
+        "round": 2,
+        "agentId": "ai-4",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 4088.9799,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m3-final-real-sequential-sse-prefetch-seed-42",
+        "gameId": "97d82e66-26dc-433b-b291-7b12152ed60b",
+        "round": 2,
+        "agentId": "ai-2",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 4725.6289,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m3-final-real-sequential-sse-prefetch-seed-42",
+        "gameId": "97d82e66-26dc-433b-b291-7b12152ed60b",
+        "round": 2,
+        "agentId": "ai-3",
+        "task": "vote",
+        "attempt": 1,
+        "latencyMs": 5823.8361,
+        "status": "success",
+        "errorType": null,
+        "httpStatus": null,
+        "schemaFields": [],
+        "sameRoundPublicAiDescriptionCount": null,
+        "sameRoundHumanDescriptionPresent": null
+      },
+      {
+        "runId": "m3-final-real-sequential-sse-prefetch-seed-42",
+        "gameId": "97d82e66-26dc-433b-b291-7b12152ed60b",
+        "round": 2,
         "agentId": "review",
         "task": "review",
         "attempt": 1,
-        "latencyMs": 9280.4868,
+        "latencyMs": 16881.5476,
         "status": "success",
         "errorType": null,
         "httpStatus": null,
