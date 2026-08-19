@@ -10,7 +10,7 @@ export type EvaluationModelKind = 'fake' | 'real';
 export type EvaluationErrorType = 'timeout' | 'http' | 'schema' | 'validation' | 'secret' | 'unknown' | null;
 export type EvaluationTask = 'describe' | 'vote' | 'review';
 
-export const EVALUATION_SCHEMA_VERSION = 3;
+export const EVALUATION_SCHEMA_VERSION = 4;
 
 export interface EvaluationOptions {
   games: number;
@@ -93,7 +93,7 @@ export interface EvaluationCostEstimate {
 }
 
 export interface EvaluationResult {
-  schemaVersion: 3;
+  schemaVersion: 4;
   run: {
     runId: string;
     commit: string;
@@ -129,6 +129,8 @@ export interface EvaluationModelCallTrace {
   errorType: EvaluationErrorType;
   httpStatus: number | null;
   schemaFields: string[];
+  sameRoundPublicAiDescriptionCount: number | null;
+  sameRoundHumanDescriptionPresent: boolean | null;
 }
 
 export interface EvaluationGameTrace {
@@ -262,6 +264,10 @@ class InstrumentedModel implements GameModel {
   }
 
   private createCallTrace(task: EvaluationTask, context: AgentContext | GameState): EvaluationModelCallTrace {
+    const descriptionContext = task === 'describe' && 'identity' in context ? context : null;
+    const sameRoundDescriptions = descriptionContext
+      ? descriptionContext.game.publicDescriptions.filter((description) => description.round === descriptionContext.game.round)
+      : [];
     return {
       runId: this.instrumentation.runId,
       gameId: this.instrumentation.currentGameId,
@@ -274,6 +280,12 @@ class InstrumentedModel implements GameModel {
       errorType: null,
       httpStatus: null,
       schemaFields: [],
+      sameRoundPublicAiDescriptionCount: descriptionContext
+        ? sameRoundDescriptions.filter((description) => description.playerId !== 'human').length
+        : null,
+      sameRoundHumanDescriptionPresent: descriptionContext
+        ? sameRoundDescriptions.some((description) => description.playerId === 'human')
+        : null,
     };
   }
 }
