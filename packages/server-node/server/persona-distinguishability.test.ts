@@ -30,6 +30,11 @@ describe('persona distinguishability', () => {
     expect(new Set(users.map((user) => user.persona.core))).toHaveLength(4);
     expect(new Set(users.map((user) => user.persona.speechStyle))).toHaveLength(4);
     expect(new Set(users.map((user) => user.persona.keyPrinciple))).toHaveLength(4);
+    expect(users.map((user) => user.persona.riskTolerance)).toEqual(['LOW', 'MEDIUM_LOW', 'MEDIUM_HIGH', 'HIGH']);
+    expect(new Set(users.map((user) => user.persona.personalityAnchor))).toHaveLength(4);
+    expect(new Set(users.map((user) => user.persona.observationLens))).toHaveLength(4);
+    expect(new Set(users.map((user) => user.priority))).toHaveLength(1);
+    expect(users[0].priority).toContain('全局安全');
 
     expect(new Set(users.map((user) => user.roleObjective))).toHaveLength(1);
     expect(users[0].roleObjective).toContain('shared-safe');
@@ -41,6 +46,9 @@ describe('persona distinguishability', () => {
     const second = buildDescribePrompt(fixedCase('cautious'));
     expect(renderPromptHash(first.version, first.messages)).toBe(renderPromptHash(second.version, second.messages));
     expect(first.version).toBe(DESCRIBE_PROMPT_VERSION);
+
+    const retried = buildDescribePrompt(fixedCase('cautious'), { attempt: 2 });
+    expect(renderPromptHash(retried.version, retried.messages)).toBe(renderPromptHash(first.version, first.messages));
 
     const repaired = buildDescribePrompt(fixedCase('cautious'), {
       attempt: 2,
@@ -58,6 +66,8 @@ describe('persona distinguishability', () => {
     expect(votePrompts[0].version).toBe(VOTE_PROMPT_VERSION);
     const users = votePrompts.map((prompt) => JSON.parse(prompt.messages[1].content));
     expect(new Set(users.map((user) => user.persona.vote))).toHaveLength(4);
+    expect(new Set(users.map((user) => user.persona.riskTolerance))).toHaveLength(4);
+    expect(new Set(users.map((user) => user.persona.observationLens))).toHaveLength(4);
   });
 });
 

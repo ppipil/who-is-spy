@@ -37,6 +37,21 @@ describe('agent strategies', () => {
     expect(new Set(strategies.map((strategy) => strategy.persona.describe))).toHaveLength(4);
     expect(new Set(strategies.map((strategy) => strategy.persona.vote))).toHaveLength(4);
     expect(new Set(strategies.map((strategy) => strategy.persona.speechStyle))).toHaveLength(4);
+    expect(strategies.map((strategy) => strategy.persona.riskTolerance)).toEqual([
+      'LOW',
+      'MEDIUM_LOW',
+      'MEDIUM_HIGH',
+      'HIGH',
+    ]);
+    expect(new Set(strategies.map((strategy) => strategy.persona.riskTolerance))).toHaveLength(4);
+    expect(strategies.map((strategy) => strategy.persona.personalityAnchor.split('（')[0])).toEqual([
+      'ISTJ-like',
+      'INFP-like',
+      'INTP-like',
+      'ENTP-like',
+    ]);
+    expect(new Set(strategies.map((strategy) => strategy.persona.observationLens))).toHaveLength(4);
+    expect(strategies.every((strategy) => strategy.persona.personalityAnchor.includes('内部锚点'))).toBe(true);
     expect(strategies.every((strategy) => strategy.qualityPolicy.maxDescriptionAttempts >= 2)).toBe(true);
 
     const undercoverObjectives = strategies.map(() => buildRoleObjective({ role: 'undercover', phase: 'describing' }));

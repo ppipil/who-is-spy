@@ -6,8 +6,8 @@ import { buildRoleObjective, getAgentStrategy } from './agent-strategy.js';
 import type { DescriptionRequest } from './description-quality.js';
 import type { AgentContext, GameState } from './types.js';
 
-export const DESCRIBE_PROMPT_VERSION = 'describe-v3';
-export const VOTE_PROMPT_VERSION = 'vote-v3';
+export const DESCRIBE_PROMPT_VERSION = 'describe-v4';
+export const VOTE_PROMPT_VERSION = 'vote-v4';
 export const REVIEW_PROMPT_VERSION = 'review-v1';
 
 export type PromptTask = 'describe' | 'vote' | 'review';
@@ -65,10 +65,15 @@ export function buildDescribePrompt(context: AgentContext, request?: Description
     task: '为本轮给出一句公开描述。description 需为 2–60 个字符（约 28 个汉字以内），不能包含自己的词。',
     safety: { exposure: EXPOSURE_POLICY, untrustedContent: UNTRUSTED_POLICY },
     roleObjective: buildRoleObjective({ role: context.identity.role, phase: 'describing' }),
+    priority:
+      '全局安全 > 身份目标 > 暴露控制 > Persona 风格。Persona 只影响安全区间内的信息预算、观察角度与表达方式，不能削弱安全；riskTolerance 代表“在安全上限内愿意提供多少信息”，不代表可以越界。',
     persona: {
       id: strategy.id,
       displayName: strategy.displayName,
+      personalityAnchor: strategy.persona.personalityAnchor,
+      riskTolerance: strategy.persona.riskTolerance,
       core: strategy.persona.core,
+      observationLens: strategy.persona.observationLens,
       describe: strategy.persona.describe,
       speechStyle: strategy.persona.speechStyle,
       keyPrinciple: strategy.persona.keyPrinciple,
@@ -113,6 +118,9 @@ export function buildVotePrompt(
     persona: {
       id: strategy.id,
       displayName: strategy.displayName,
+      personalityAnchor: strategy.persona.personalityAnchor,
+      riskTolerance: strategy.persona.riskTolerance,
+      observationLens: strategy.persona.observationLens,
       vote: strategy.persona.vote,
       keyPrinciple: strategy.persona.keyPrinciple,
     },

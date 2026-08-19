@@ -34,6 +34,9 @@
 
 - ① 怎么让后发言的 AI 看到本轮前面已公开的描述,同时又保证它看不到别人的身份和词:
 - ① 怎么让四个角色(谨慎 / 直觉 / 逻辑 / 出其不意)在同样局面下说出不一样的话:
+  上一版把差异主要做在“措辞”(core / speechStyle 不同),但每个 Persona 的 describe 里都写了“只给宽泛、低信息量 weak clue”,分析型还专门写“逻辑派不代表描述得更具体”,等于在 Prompt 层给四个人统一压低了信息预算;真实试玩里模型默认取最安全模板(“和生活有关”“很常见”),看起来只是换说法。
+  本轮把“信息风险偏好”从安全规则里拆出来:Global Safety / EXPOSURE_POLICY / M4 Gate 完全不动,给四个 Persona 增加显式 `riskTolerance` 梯度(LOW / MEDIUM_LOW / MEDIUM_HIGH / HIGH),并为逻辑派、出其不意写清“允许更直接但必须给出可推理关系、不能越线”;同时加 `personalityAnchor`(ISTJ-like / INFP-like / INTP-like / ENTP-like)只作为内部稳定锚点,不替换题目 Persona 名,不进 README / UI。
+  放弃“给每个人单独放宽安全规则”的做法——那会制造不同的安全上限,与“同一安全上限内不同信息预算”的目标相反。
 - ① 怎么判断一条描述"太雷同或快泄题了",判定之后怎么处理(重试还是降级):
 - ② 每个质量指标是怎么算的,阈值为什么定这个数:
 - ③ 一条日志 / trace 里记了哪些字段,怎么保证不把密词和 Key 写进去:
@@ -59,3 +62,43 @@
 策略里程碑验证:`npm run test:node` 为 5 文件/10 测试通过;`npm run contract:node` 为 28/28;`npm run build` 通过;相同 seed 的 Fake eval 为 20/20 完局、四策略独立聚合、同质化 0。真实模型记录保持空白,直到实际调用成功。
 
 顺序编排验证:`npm run test:node` 为 5 文件/11 测试通过(含 `0→1→2→3` 与第四 Agent 故障原子性);契约 28/28、Fake eval 20/20、build 通过。
+
+### Persona 风险梯度打磨(独立 worktree,分支 `feat/persona-risk-tolerance`)
+
+环境隔离:主目录 `D:\pp\code\project\who-is-spy` 存在另一个 Codex 窗口的未提交 Admin Console 改动;本轮在独立 worktree `D:\pp\code\project\who-is-spy-persona-polish`(基于提交 `0953d8c`)完成,未修改主目录任何文件;未 commit / push,未运行 M6 评测。
+
+- `npm run test:node` → 12 测试文件 / 48 测试通过(新增 `persona-diagnostics` 2 个;原有 M3 同轮上下文、M4 重复/泄词门禁、隔离、model 等全部通过)。
+- `npm run build` → web Vite build(1804 modules)+ server-node `tsc --noEmit` 通过。
+- `npm run contract:node` → 28 通过 / 0 失败。
+- `npm run persona-probe`(真实 DeepSeek,3 组固定 Case × 4 Persona × describe+vote = 24 次调用)→ 全部成功;`flagLowInformationClue` 诊断 3 组均 0 命中(该诊断只用于 probe 输出,不接入线上门禁)。
+
+固定 Case 真实结果(每组 Case 内 same role / word / round / publicDescriptions / model / temperature,只切 Persona;私有词不在此列出):
+
+Case 1(卧底 · 第2轮 · 后手位):
+
+| Persona | Risk | Description | Vote | Reason |
+| --- | --- | --- | --- | --- |
+| 谨慎观察 | LOW | 我注意到它通常有固定的起点和终点。 | ai-1 | 阿序描述固定地点等待,与高铁常见但非唯一特征,且较模糊,略有偏差。 |
+| 直觉敏锐 | MEDIUM_LOW | 长途出行时,它能帮你快速到达另一个城市。 | ai-1 | 描述过于泛化,像是临时编的,且没有具体场景支撑。 |
+| 逻辑派 | MEDIUM_HIGH | 从这个角度看,它更多是一种连接方式。 | ai-1 | 阿序的“固定地方等它”与高铁站台候车更贴切,而我的词可能更强调移动过程,逻辑不够兼容。 |
+| 出其不意 | HIGH | 它有时候反而会因为天气原因不太靠谱。 | ai-1 | 描述固定地点等待,更像固定线路,与高铁不符。 |
+
+Case 2(平民 · 第2轮 · 后手位,公开描述均为泛化安全句):
+
+| Persona | Risk | Description | Vote | Reason |
+| --- | --- | --- | --- | --- |
+| 谨慎观察 | LOW | 我注意到它通常在地下运行。 | ai-1 | 描述过于笼统,与多数人强调的常见性相比,缺乏具体细节。 |
+| 直觉敏锐 | MEDIUM_LOW | 赶时间的时候,它总是在那里等着。 | ai-1 | 描述最空泛,未提供具体特征,疑似隐藏信息。 |
+| 逻辑派 | MEDIUM_HIGH | 从一个点到另一个点的连接,往往在地下。 | ai-1 | 阿序发言过于宽泛,未提供具体特征,与其他描述兼容性存疑。 |
+| 出其不意 | HIGH | 有时候人太多,挤得不行。 | ai-1 | 描述最泛化,无细节,疑似隐藏身份。 |
+
+Case 3(卧底 · 第3轮 · 后手位,公开描述偏狐狸特征):
+
+| Persona | Risk | Description | Vote | Reason |
+| --- | --- | --- | --- | --- |
+| 谨慎观察 | LOW | 通常和人很亲近。 | ai-1 | 阿序说聪明狡猾,但猫更常被描述为灵巧而非狡猾,略偏狐狸特性。 |
+| 直觉敏锐 | MEDIUM_LOW | 有时候会懒洋洋地待着,让人想靠近。 | ai-2 | 弥生强调尾巴细节,可能偏离猫常见特征,更像狐狸。 |
+| 逻辑派 | MEDIUM_HIGH | 从这个角度看,更像是一种会让人想靠近的动物。 | ai-1 | 阿序的描述笼统,未提到具体特征,与其他玩家具体描述不符。 |
+| 出其不意 | HIGH | 但也不一定,有时候它们还挺粘人的。 | ai-1 | 阿序的描述过于抽象,与常见词语关联弱,疑似回避暴露。 |
+
+观察:四个 Persona 在描述的信息量、切入角度与投票关注点上都出现明显梯度;Case 2 中后手位在公开局面已很泛化时,四个人都给出了各自风格下的具体化方向(地下 / 赶时间场景 / 点对点连接 / 拥挤),没有继续堆“很常见、和生活有关”类空话;逻辑派与出其不意明显更直接。
