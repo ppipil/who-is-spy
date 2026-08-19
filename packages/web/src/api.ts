@@ -20,6 +20,8 @@ export const api = {
     request<{ ok: boolean; model: string; configured: boolean }>('/api/health'),
   createGame: () =>
     request<PublicGameState>('/api/games', { method: 'POST' }),
+  getGame: (id: string) =>
+    request<PublicGameState>(`/api/games/${id}`),
   describe: (id: string, text: string) =>
     request<PublicGameState>(`/api/games/${id}/describe`, {
       method: 'POST',

@@ -105,28 +105,9 @@ export class GameEngine {
     }
 
     const humanDescription = { playerId: human.id, text: description, round: game.round };
-    const contextGame = { ...game, descriptions: [...game.descriptions, humanDescription] };
-    const aiDescriptions = await this.generateDescriptions(contextGame);
-    const roundDescriptions: Description[] = [humanDescription, ...aiDescriptions];
-    game.descriptions.push(...roundDescriptions);
-    game.events.push(
-      ...roundDescriptions.map((item) => ({
-        id: randomUUID(),
-        type: 'description' as const,
-        text: item.text,
-        round: game.round,
-        playerId: item.playerId,
-      })),
-    );
-    game.phase = 'voting';
-    game.ballot = 1;
-    game.eligibleTargetIds = null;
-    game.events.push({
-      id: randomUUID(),
-      type: 'system',
-      text: '所有人描述完毕。观察措辞，投出你最怀疑的一票。',
-      round: game.round,
-    });
+    this.commitDescription(game, humanDescription);
+    await this.generateDescriptions(game);
+    this.enterVoting(game);
     return this.toPublic(game);
   }
 
@@ -163,20 +144,8 @@ export class GameEngine {
     while (!this.isFinished(game) && safety < 12) {
       safety += 1;
       if (game.phase === 'describing') {
-        const descriptions = await this.generateDescriptions(game);
-        game.descriptions.push(...descriptions);
-        game.events.push(
-          ...descriptions.map((item) => ({
-            id: randomUUID(),
-            type: 'description' as const,
-            text: item.text,
-            round: game.round,
-            playerId: item.playerId,
-          })),
-        );
-        game.phase = 'voting';
-        game.ballot = 1;
-        game.eligibleTargetIds = null;
+        await this.generateDescriptions(game);
+        this.enterVoting(game);
       } else {
         const votes = await this.generateVotes(game);
         game.votes.push(...votes);
@@ -190,20 +159,44 @@ export class GameEngine {
   }
 
   private async generateDescriptions(game: GameState): Promise<Description[]> {
-    const agents = game.players.filter((player) => !player.isHuman && player.alive);
+    const describedPlayerIds = new Set(
+      game.descriptions.filter((description) => description.round === game.round).map((description) => description.playerId),
+    );
+    const agents = game.players.filter((player) => !player.isHuman && player.alive && !describedPlayerIds.has(player.id));
     const outputs: Description[] = [];
     for (const agent of agents) {
-      const stagedGame =
-        outputs.length === 0
-          ? game
-          : { ...game, descriptions: [...game.descriptions, ...outputs] };
-      outputs.push({
+      const description = {
         playerId: agent.id,
-        text: await this.model.describe(buildAgentContext(stagedGame, agent)),
+        text: await this.model.describe(buildAgentContext(game, agent)),
         round: game.round,
-      });
+      };
+      this.commitDescription(game, description);
+      outputs.push(description);
     }
     return outputs;
+  }
+
+  private commitDescription(game: GameState, description: Description): void {
+    game.descriptions.push(description);
+    game.events.push({
+      id: randomUUID(),
+      type: 'description',
+      text: description.text,
+      round: description.round,
+      playerId: description.playerId,
+    });
+  }
+
+  private enterVoting(game: GameState): void {
+    game.phase = 'voting';
+    game.ballot = 1;
+    game.eligibleTargetIds = null;
+    game.events.push({
+      id: randomUUID(),
+      type: 'system',
+      text: '所有人描述完毕。观察措辞，投出你最怀疑的一票。',
+      round: game.round,
+    });
   }
 
   private async generateVotes(game: GameState): Promise<Vote[]> {
