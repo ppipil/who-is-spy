@@ -46,6 +46,8 @@
 
 ① 顺序与隔离:`generateDescriptions` 按稳定座位顺序循环,只在方法局部维护 staged descriptions;下一位上下文用“正式历史 + 已成功 staged 前缀”交给原 allowlist builder,不传完整状态后删字段。调用者只在整批返回后提交 descriptions/events/phase。测试观察到同轮 AI 前缀 `0→1→2→3`,并继续断言其他人的词不在序列化 Context;第四位故障时对完整内部状态做前后相等比较。投票保留同一公开快照上的 `Promise.all`,避免当前票型互相可见。放弃逐条直接 push 正式状态,因为最后一个 Agent 失败会留下半轮。
 
+① M3 真实验收:`8ce7f23` 的固定 seed DeepSeek 3 局 smoke 为 3/3 完局、合法投票 100%、描述同质化 0.0211。为把“Context 存在”与“看似利用前文”分开，评测 Trace 升为 schema v4，仅增加 describe 调用的同轮 AI 前缀计数及 human 是否存在，不记录 Context 文本；三局首轮均为 `0/1/2/3`。红线指标仍显示 vote/review/alias 暴露 `10/5/6`，精确描述泄题及 public-state 泄露为 0；保留给 M4，不把 M3 当作质量门禁完成。与 M2 同条件小样本相比，整体时长从 147980.38ms 至 168740.53ms，符合串行调用方向；单次响应 P50/P95、Token 与成本受模型随机性影响，不作因果或显著性结论。证据见 `docs/evidence/m3-sequential/`。
+
 ## 4. 验证证据
 
 > 贴命令 + 关键输出(注意别带上密钥或完整密词)。
