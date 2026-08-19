@@ -4,11 +4,19 @@ interface CliOptions {
   games: number;
   seed: number;
   model: EvaluationModelKind;
+  commit?: string;
+  runId?: string;
 }
 
 async function main(): Promise<void> {
   const options = parseArguments(process.argv.slice(2));
-  const result = await runEvaluation({ games: options.games, seed: options.seed, modelKind: options.model });
+  const result = await runEvaluation({
+    games: options.games,
+    seed: options.seed,
+    modelKind: options.model,
+    commit: options.commit,
+    runId: options.runId,
+  });
   printHumanTable(result);
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   if (!result.gate.passed) process.exitCode = 1;
@@ -28,6 +36,12 @@ function parseArguments(arguments_: string[]): CliOptions {
     } else if (argument === '--model' && (value === 'fake' || value === 'real')) {
       options.model = value;
       index += 1;
+    } else if (argument === '--commit' && value) {
+      options.commit = value;
+      index += 1;
+    } else if (argument === '--run-id' && value) {
+      options.runId = value;
+      index += 1;
     } else {
       throw new Error(`unknown or incomplete argument: ${argument}`);
     }
@@ -39,6 +53,9 @@ function printHumanTable(result: EvaluationResult): void {
   const { metrics } = result;
   const rows = [
     ['started/completed', `${metrics.startedGames}/${metrics.completedGames}`],
+    ['schemaVersion', String(result.schemaVersion)],
+    ['runId', result.run.runId],
+    ['commit', result.run.commit],
     ['completionRate', formatRate(metrics.completionRate)],
     ['descriptionAttempts', String(metrics.descriptionAttempts)],
     ['validVoteRate', formatRate(metrics.validVoteRate)],
