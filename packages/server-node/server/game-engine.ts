@@ -38,6 +38,15 @@ interface PendingAiVotes {
   promise: Promise<{ ok: true; votes: Vote[] } | { ok: false; error: unknown }>;
 }
 
+interface DescriptionResumeState {
+  round: number;
+  missingAgentId: string;
+  manualResumeIndex: number;
+  manualRetriesRemaining: number;
+}
+
+const MANUAL_DESCRIPTION_RESUME_MAX = 2;
+
 export class GameRuleError extends Error {
   constructor(message: string, public readonly status = 400) {
     super(message);
@@ -50,6 +59,8 @@ export class GameEngine {
   private readonly progressListeners = new Set<(event: PublicProgressEvent) => void>();
   private readonly pendingAiVotes = new Map<string, PendingAiVotes>();
   private readonly qualityGate = new DescriptionQualityGate();
+  private readonly descriptionResume = new Map<string, DescriptionResumeState>();
+  private readonly descriptionGenerationActive = new Set<string>();
 
   constructor(
     private readonly model: GameModel,
@@ -137,7 +148,7 @@ export class GameEngine {
 
     const humanDescription = { playerId: human.id, text: description, round: game.round };
     this.commitDescription(game, humanDescription);
-    await this.generateDescriptions(game);
+    await this.runDescriptionGeneration(game);
     this.enterVoting(game);
     return this.toPublic(game);
   }
@@ -176,7 +187,7 @@ export class GameEngine {
     while (!this.isFinished(game) && safety < 12) {
       safety += 1;
       if (game.phase === 'describing') {
-        await this.generateDescriptions(game);
+        await this.runDescriptionGeneration(game);
         this.enterVoting(game);
       } else {
         const votes = await this.consumePendingAiVotes(game);
@@ -191,11 +202,98 @@ export class GameEngine {
     return this.toPublic(game);
   }
 
-  private async generateDescriptions(game: GameState): Promise<Description[]> {
-    const describedPlayerIds = new Set(
-      game.descriptions.filter((description) => description.round === game.round).map((description) => description.playerId),
+  async resumeDescription(id: string): Promise<PublicGameState> {
+    const game = this.requireGame(id);
+    this.assertPhase(game, 'describing');
+    const human = this.human(game);
+    if (!human.alive) throw new GameRuleError('你已出局，请继续观战');
+    const humanDescribed = game.descriptions.some(
+      (description) => description.round === game.round && description.playerId === human.id,
     );
-    const agents = game.players.filter((player) => !player.isHuman && player.alive && !describedPlayerIds.has(player.id));
+    if (!humanDescribed) throw new GameRuleError('请先完成本轮你的描述');
+    const pending = this.pendingDescriptionAgents(game);
+    if (pending.length === 0) throw new GameRuleError('本轮描述已经完成');
+    if (this.descriptionGenerationActive.has(game.id)) {
+      throw new GameRuleError('已有生成请求进行中，请稍候', 409);
+    }
+    const missingAgentId = pending[0].id;
+    const state = this.descriptionResume.get(game.id);
+    if (
+      state &&
+      state.round === game.round &&
+      state.missingAgentId === missingAgentId &&
+      state.manualRetriesRemaining <= 0
+    ) {
+      throw new GameRuleError('本轮手动重试次数已用完，当前进度未损坏但暂时无法继续', 400);
+    }
+    const next: DescriptionResumeState = {
+      round: game.round,
+      missingAgentId,
+      manualResumeIndex:
+        (state && state.round === game.round && state.missingAgentId === missingAgentId ? state.manualResumeIndex : 0) + 1,
+      manualRetriesRemaining:
+        state && state.round === game.round && state.missingAgentId === missingAgentId
+          ? state.manualRetriesRemaining
+          : MANUAL_DESCRIPTION_RESUME_MAX,
+    };
+    this.descriptionResume.set(game.id, next);
+    this.traceRecovery(game, missingAgentId, next, undefined);
+    this.descriptionGenerationActive.add(game.id);
+    try {
+      await this.generateDescriptions(game);
+      this.descriptionResume.delete(game.id);
+      this.traceRecovery(game, missingAgentId, next, 'recovered');
+      this.enterVoting(game);
+    } catch (error) {
+      const pendingAfter = this.pendingDescriptionAgents(game);
+      const nextMissing = pendingAfter[0]?.id;
+      if (nextMissing && nextMissing !== missingAgentId) {
+        this.descriptionResume.set(game.id, {
+          round: game.round,
+          missingAgentId: nextMissing,
+          manualResumeIndex: 1,
+          manualRetriesRemaining: MANUAL_DESCRIPTION_RESUME_MAX,
+        });
+      } else {
+        const updated = this.descriptionResume.get(game.id);
+        if (updated) {
+          updated.missingAgentId = nextMissing ?? missingAgentId;
+          updated.manualRetriesRemaining = Math.max(0, updated.manualRetriesRemaining - 1);
+        }
+      }
+      this.traceRecovery(game, missingAgentId, this.descriptionResume.get(game.id) ?? next, 'exhausted');
+      throw error;
+    } finally {
+      this.descriptionGenerationActive.delete(game.id);
+    }
+    return this.toPublic(game);
+  }
+
+  private async runDescriptionGeneration(game: GameState): Promise<void> {
+    if (this.descriptionGenerationActive.has(game.id)) {
+      throw new GameRuleError('已有生成请求进行中，请稍候', 409);
+    }
+    this.descriptionGenerationActive.add(game.id);
+    try {
+      await this.generateDescriptions(game);
+    } catch (error) {
+      const pending = this.pendingDescriptionAgents(game);
+      if (pending.length > 0 && this.human(game).alive) {
+        this.descriptionResume.set(game.id, {
+          round: game.round,
+          missingAgentId: pending[0].id,
+          manualResumeIndex: 0,
+          manualRetriesRemaining: MANUAL_DESCRIPTION_RESUME_MAX,
+        });
+      }
+      throw error;
+    } finally {
+      this.descriptionGenerationActive.delete(game.id);
+    }
+  }
+
+  private async generateDescriptions(game: GameState): Promise<Description[]> {
+    const agents = this.pendingDescriptionAgents(game);
     const outputs: Description[] = [];
     const allSecrets = [...new Set(game.players.map((player) => player.word))];
     for (const agent of agents) {
@@ -249,6 +347,34 @@ export class GameEngine {
       outputs.push(description);
     }
     return outputs;
+  }
+
+  private pendingDescriptionAgents(game: GameState): Player[] {
+    const describedPlayerIds = new Set(
+      game.descriptions.filter((description) => description.round === game.round).map((description) => description.playerId),
+    );
+    return game.players.filter((player) => !player.isHuman && player.alive && !describedPlayerIds.has(player.id));
+  }
+
+  private traceRecovery(
+    game: GameState,
+    agentId: string,
+    state: DescriptionResumeState,
+    recoveryOutcome: 'recovered' | 'exhausted' | undefined,
+  ): void {
+    this.traceSink?.record({
+      eventType: 'recovery_action',
+      gameId: game.id,
+      round: game.round,
+      phase: 'describing',
+      ballot: game.ballot,
+      recoveryAction: 'description_resume',
+      agentId,
+      agentName: game.players.find((player) => player.id === agentId)?.name,
+      manualResumeIndex: state.manualResumeIndex,
+      manualRetriesRemaining: state.manualRetriesRemaining,
+      ...(recoveryOutcome ? { recoveryOutcome } : {}),
+    });
   }
 
   private commitDescription(game: GameState, description: Description): void {
@@ -476,6 +602,7 @@ export class GameEngine {
   private toPublic(game: GameState): PublicGameState {
     const finished = game.phase === 'finished';
     const human = this.human(game);
+    const resume = this.descriptionResume.get(game.id);
     return {
       id: game.id,
       phase: game.phase,
@@ -497,6 +624,15 @@ export class GameEngine {
       review: game.review,
       human: { playerId: human.id, role: human.role, word: human.word },
       model: this.model.model,
+      ...(resume
+        ? {
+            descriptionResume: {
+              missingAgentId: resume.missingAgentId,
+              manualResumeIndex: resume.manualResumeIndex,
+              manualRetriesRemaining: resume.manualRetriesRemaining,
+            },
+          }
+        : {}),
     };
   }
 

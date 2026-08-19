@@ -74,6 +74,14 @@ export function createApp(model: GameModel = new DeepSeekClient()) {
     }
   });
 
+  app.post('/api/games/:id/description/resume', async (request, response, next) => {
+    try {
+      response.json(await engine.resumeDescription(request.params.id));
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.post('/api/games/:id/vote', async (request, response, next) => {
     try {
       const input = voteInput.parse(request.body);

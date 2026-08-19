@@ -58,10 +58,27 @@ export interface PublicRuntimeTraceEvent {
   outcome: TraceOutcome;
 }
 
-export type RuntimeTraceEvent = ModelCallTraceEvent | PublicRuntimeTraceEvent;
+export interface RecoveryActionTraceEvent {
+  eventType: 'recovery_action';
+  timestamp: string;
+  sequence: number;
+  gameId: string;
+  round: number;
+  phase: 'describing';
+  ballot?: number;
+  recoveryAction: 'description_resume';
+  agentId: string;
+  agentName?: string;
+  manualResumeIndex: number;
+  manualRetriesRemaining: number;
+  recoveryOutcome?: 'recovered' | 'exhausted';
+}
+
+export type RuntimeTraceEvent = ModelCallTraceEvent | PublicRuntimeTraceEvent | RecoveryActionTraceEvent;
 export type RuntimeTraceDraft =
   | Omit<ModelCallTraceEvent, 'timestamp' | 'sequence'>
-  | Omit<PublicRuntimeTraceEvent, 'timestamp' | 'sequence'>;
+  | Omit<PublicRuntimeTraceEvent, 'timestamp' | 'sequence'>
+  | Omit<RecoveryActionTraceEvent, 'timestamp' | 'sequence'>;
 
 export interface TraceSink {
   record(event: RuntimeTraceDraft): void;
@@ -124,6 +141,10 @@ export function formatTraceLine(event: RuntimeTraceEvent): string {
   if (event.eventType === 'public_event') {
     return `#${event.sequence} 第${event.round}轮 ${phaseLabel(event.phase)} · 公开事件 ${publicEventLabel(event.publicEventType)}`;
   }
+  if (event.eventType === 'recovery_action') {
+    const outcome = event.recoveryOutcome === 'recovered' ? '恢复成功' : event.recoveryOutcome === 'exhausted' ? '恢复耗尽' : '';
+    return `#${event.sequence} 第${event.round}轮 描述阶段 · ↳ 手动恢复 ${displayAgent(event.agentId, event.agentName)} #${event.manualResumeIndex}（剩余 ${event.manualRetriesRemaining} 次）${outcome}`;
+  }
   const icon = event.outcome === 'success' ? '✓' : event.outcome === 'fallback' ? '↳' : '✗';
   const actor = displayAgent(event.agentId, event.agentName);
   const error = event.errorType ? ` ${errorLabel(event.errorType)} errorType=${event.errorType}${event.httpStatus ? ` HTTP=${event.httpStatus}` : ''}` : '';
@@ -173,6 +194,12 @@ function formatReplayEvent(event: RuntimeTraceEvent): string[] {
     if (event.publicEventType === 'system' && event.phase === 'describing') return [`→ 进入第${event.round}轮描述`];
     return [];
   }
+  if (event.eventType === 'recovery_action') {
+    const outcome = event.recoveryOutcome === 'recovered' ? '，恢复成功' : event.recoveryOutcome === 'exhausted' ? '，恢复耗尽' : '';
+    return [
+      `↳ 手动恢复 ${displayAgent(event.agentId, event.agentName)} #${event.manualResumeIndex}（剩余 ${event.manualRetriesRemaining} 次）${outcome}`,
+    ];
+  }
   if (event.outcome === 'success') {
     if (event.task === 'vote' && !hasNearbyFailure(event)) return [];
     const suffix = event.task === 'vote' ? '成功（私有候选，等待整批结算）' : '成功';
@@ -208,6 +235,10 @@ function formatGroupedVoteReplay(events: RuntimeTraceEvent[]): string[] {
         }
         lines.push('→ 本批 AI votes 全部成功，连同 Human vote 正式提交并结算');
       }
+      lines.push(...formatReplayEvent(event));
+      continue;
+    }
+    if (event.eventType === 'recovery_action') {
       lines.push(...formatReplayEvent(event));
       continue;
     }

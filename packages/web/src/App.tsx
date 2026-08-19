@@ -17,7 +17,7 @@ import {
   Vote,
   X,
 } from 'lucide-react';
-import { api } from './api';
+import { api, ApiError } from './api';
 import type { DescriptionPublishedProgressEvent, PhaseChangedProgressEvent, PublicGameState, PublicPlayer, Role } from './types';
 
 type Screen = 'home' | 'reveal' | 'game';
@@ -29,6 +29,8 @@ export function App() {
   const [selectedTarget, setSelectedTarget] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [transientFailure, setTransientFailure] = useState(false);
+  const [slowNetwork, setSlowNetwork] = useState(false);
   const [configured, setConfigured] = useState<boolean | null>(null);
   const [model, setModel] = useState('deepseek-v4-flash');
   const feedEndRef = useRef<HTMLDivElement>(null);
@@ -50,6 +52,15 @@ export function App() {
   }, [game?.events.length, screen]);
 
   useEffect(() => {
+    if (!busy || !game || game.phase !== 'describing') {
+      setSlowNetwork(false);
+      return;
+    }
+    const timer = setTimeout(() => setSlowNetwork(true), 35_000);
+    return () => clearTimeout(timer);
+  }, [busy, game?.id, game?.phase]);
+
+  useEffect(() => {
     if (screen !== 'game' || !game) return;
     const source = api.subscribeToProgress(game.id, {
       onDescription: (event) => setGame((current) => applyDescriptionProgress(current, event)),
@@ -63,6 +74,7 @@ export function App() {
     setError('');
     try {
       const nextGame = await action();
+      setTransientFailure(false);
       setGame(nextGame);
       setSelectedTarget('');
       setDescription('');
@@ -80,6 +92,7 @@ export function App() {
     setError('');
     try {
       const nextGame = await api.describe(gameId, description);
+      setTransientFailure(false);
       setGame(nextGame);
       setDescription('');
     } catch (actionError) {
@@ -88,6 +101,31 @@ export function App() {
       } catch {
         // Keep the latest SSE state if the one-time recovery read also fails.
       }
+      setTransientFailure(isTransientModelError(actionError));
+      setError(actionError instanceof Error ? actionError.message : '发生未知错误');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const runResume = async () => {
+    if (!game) return;
+    const gameId = game.id;
+    setBusy(true);
+    setError('');
+    try {
+      const nextGame = await api.resumeDescription(gameId);
+      setTransientFailure(false);
+      setGame(nextGame);
+      setSelectedTarget('');
+      setDescription('');
+    } catch (actionError) {
+      try {
+        setGame(await api.getGame(gameId));
+      } catch {
+        // Keep the latest SSE state if the one-time recovery read also fails.
+      }
+      setTransientFailure(isTransientModelError(actionError));
       setError(actionError instanceof Error ? actionError.message : '发生未知错误');
     } finally {
       setBusy(false);
@@ -107,8 +145,16 @@ export function App() {
     setDescription('');
     setSelectedTarget('');
     setError('');
+    setTransientFailure(false);
     setScreen('home');
   };
+
+  const missingAiAgent = game ? firstMissingDescriptionAgent(game) : null;
+  const recovery = game?.descriptionResume ?? null;
+  const showRecovery = Boolean(recovery || (transientFailure && missingAiAgent));
+  const recoveryAgentId = recovery?.missingAgentId ?? missingAiAgent;
+  const recoveryRemaining = recovery?.manualRetriesRemaining ?? (transientFailure ? 2 : 0);
+  const recoveryIndex = recovery?.manualResumeIndex ?? 0;
 
   if (screen === 'home') {
     return (
@@ -135,10 +181,16 @@ export function App() {
       selectedTarget={selectedTarget}
       busy={busy}
       error={error}
+      slowNetwork={slowNetwork}
+      showRecovery={showRecovery}
+      recoveryAgentId={recoveryAgentId}
+      recoveryRemaining={recoveryRemaining}
+      recoveryIndex={recoveryIndex}
       feedEndRef={feedEndRef}
       onDescriptionChange={setDescription}
       onTargetChange={setSelectedTarget}
       onDescribe={runDescription}
+      onResume={runResume}
       onVote={() => runAction(() => api.vote(game.id, selectedTarget))}
       onContinue={() => runAction(() => api.continue(game.id))}
       onRestart={restart}
@@ -313,10 +365,16 @@ function GameScreen({
   selectedTarget,
   busy,
   error,
+  slowNetwork,
+  showRecovery,
+  recoveryAgentId,
+  recoveryRemaining,
+  recoveryIndex,
   feedEndRef,
   onDescriptionChange,
   onTargetChange,
   onDescribe,
+  onResume,
   onVote,
   onContinue,
   onRestart,
@@ -326,10 +384,16 @@ function GameScreen({
   selectedTarget: string;
   busy: boolean;
   error: string;
+  slowNetwork: boolean;
+  showRecovery: boolean;
+  recoveryAgentId: string | null;
+  recoveryRemaining: number;
+  recoveryIndex: number;
   feedEndRef: React.RefObject<HTMLDivElement | null>;
   onDescriptionChange: (value: string) => void;
   onTargetChange: (value: string) => void;
   onDescribe: () => void;
+  onResume: () => void;
   onVote: () => void;
   onContinue: () => void;
   onRestart: () => void;
@@ -408,8 +472,13 @@ function GameScreen({
             selectedTarget={selectedTarget}
             busy={busy}
             error={error}
+            showRecovery={showRecovery}
+            recoveryAgentId={recoveryAgentId}
+            recoveryRemaining={recoveryRemaining}
+            recoveryIndex={recoveryIndex}
             onDescriptionChange={onDescriptionChange}
             onDescribe={onDescribe}
+            onResume={onResume}
             onVote={onVote}
             onContinue={onContinue}
           />
@@ -457,7 +526,11 @@ function GameScreen({
                   <i />
                   <i />
                 </span>
-                {game.phase === 'describing' ? descriptionProgress(game) : '所有人正在写下选票…'}
+                {slowNetwork
+                  ? '网络有点慢，正在重新连接…'
+                  : game.phase === 'describing'
+                    ? descriptionProgress(game)
+                    : '所有人正在写下选票…'}
               </div>
             )}
             <div ref={feedEndRef} />
@@ -527,8 +600,13 @@ function ActionDock({
   selectedTarget,
   busy,
   error,
+  showRecovery,
+  recoveryAgentId,
+  recoveryRemaining,
+  recoveryIndex,
   onDescriptionChange,
   onDescribe,
+  onResume,
   onVote,
   onContinue,
 }: {
@@ -538,8 +616,13 @@ function ActionDock({
   selectedTarget: string;
   busy: boolean;
   error: string;
+  showRecovery: boolean;
+  recoveryAgentId: string | null;
+  recoveryRemaining: number;
+  recoveryIndex: number;
   onDescriptionChange: (value: string) => void;
   onDescribe: () => void;
+  onResume: () => void;
   onVote: () => void;
   onContinue: () => void;
 }) {
@@ -568,7 +651,7 @@ function ActionDock({
         <div className="dock-title">
           <MessageCircleMore size={20} />
           <div>
-            <strong>轮到你描述</strong>
+            <strong>{showRecovery ? '本轮描述未完成' : '轮到你描述'}</strong>
             <span>不要出现密词原文 · 2–60 字</span>
           </div>
         </div>
@@ -578,18 +661,37 @@ function ActionDock({
             onChange={(event) => onDescriptionChange(event.target.value)}
             placeholder="例如：它通常会在安静的时候出现…"
             maxLength={60}
-            disabled={busy}
+            disabled={busy || (showRecovery && recoveryRemaining <= 0)}
           />
           <span>{description.trim().length}/60</span>
           <button
             className="send-button"
             onClick={onDescribe}
-            disabled={busy || description.trim().length < 2}
+            disabled={busy || (showRecovery && recoveryRemaining <= 0) || description.trim().length < 2}
           >
             {busy ? <LoaderCircle className="spin" size={18} /> : <ArrowRight size={18} />}
           </button>
         </div>
-        {error && <InlineError message={error} />}
+        {showRecovery ? (
+          <div className="recovery-box">
+            {recoveryRemaining <= 0 ? (
+              <p>模型服务暂时不可用，当前游戏进度没有损坏，但本轮暂时无法继续。</p>
+            ) : (
+              <>
+                <p>
+                  <strong>{game.players.find((player) => player.id === recoveryAgentId)?.name ?? 'AI 玩家'}</strong>
+                  {recoveryIndex === 0 ? ' 这次生成没有成功，已保留当前游戏进度。' : ' 还是没有成功，可以再试一次'}
+                </p>
+                <button className="primary-button ink" onClick={onResume} disabled={busy}>
+                  {busy ? <LoaderCircle className="spin" size={17} /> : <RotateCcw size={17} />}
+                  {busy ? '正在重新尝试…' : recoveryIndex === 0 ? '重新尝试' : '再试一次'}
+                </button>
+              </>
+            )}
+          </div>
+        ) : (
+          error && <InlineError message={error} />
+        )}
       </div>
     );
   }
@@ -832,4 +934,28 @@ function InlineError({ message }: { message: string }) {
       {message}
     </div>
   );
+}
+
+const TRANSIENT_MODEL_ERROR_TYPES = new Set([
+  'timeout',
+  'rate_limit',
+  'provider_5xx',
+  'network',
+  'invalid_json',
+  'schema_validation',
+]);
+
+function isTransientModelError(error: unknown): boolean {
+  return (
+    error instanceof ApiError &&
+    Boolean(error.diagnostic?.errorType && TRANSIENT_MODEL_ERROR_TYPES.has(error.diagnostic.errorType))
+  );
+}
+
+function firstMissingDescriptionAgent(game: PublicGameState): string | null {
+  const describedPlayerIds = new Set(
+    game.descriptions.filter((description) => description.round === game.round).map((description) => description.playerId),
+  );
+  const missing = game.players.find((player) => !player.isHuman && player.alive && !describedPlayerIds.has(player.id));
+  return missing?.id ?? null;
 }
