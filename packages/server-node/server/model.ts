@@ -39,6 +39,17 @@ export class ModelError extends Error {
   }
 }
 
+export interface ModelUsageEvent {
+  task: 'describe' | 'vote' | 'review';
+  providerAttempt: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  source: 'provider';
+}
+
+export type ModelUsageRecorder = (event: ModelUsageEvent) => void;
+
 interface ChatMessage {
   role: 'system' | 'user';
   content: string;
@@ -50,21 +61,28 @@ export interface GameModel {
   describe(context: AgentContext): Promise<string>;
   vote(context: AgentContext, allowedTargets: Player[]): Promise<{ targetId: string; reason: string }>;
   review(game: GameState): Promise<GameReview>;
+  setUsageRecorder?(recorder: ModelUsageRecorder): void;
 }
 
 export class DeepSeekClient implements GameModel {
   readonly model: string;
   private readonly apiKey: string;
   private readonly baseUrl: string;
+  private usageRecorder?: ModelUsageRecorder;
 
-  constructor(options?: { apiKey?: string; baseUrl?: string; model?: string }) {
+  constructor(options?: { apiKey?: string; baseUrl?: string; model?: string; usageRecorder?: ModelUsageRecorder }) {
     this.apiKey = options?.apiKey ?? process.env.DEEPSEEK_API_KEY ?? '';
     this.baseUrl = (options?.baseUrl ?? process.env.DEEPSEEK_BASE_URL ?? 'https://api.deepseek.com').replace(/\/$/, '');
     this.model = options?.model ?? process.env.DEEPSEEK_MODEL ?? 'deepseek-v4-flash';
+    this.usageRecorder = options?.usageRecorder;
   }
 
   isConfigured(): boolean {
     return this.apiKey.length > 0;
+  }
+
+  setUsageRecorder(recorder: ModelUsageRecorder): void {
+    this.usageRecorder = recorder;
   }
 
   async describe(context: AgentContext): Promise<string> {
@@ -88,7 +106,9 @@ export class DeepSeekClient implements GameModel {
     let internalAttempts = 0;
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
-        const result = descriptionSchema.parse(await this.chatJson(messages, 0.8, (count) => (internalAttempts += count)));
+        const result = descriptionSchema.parse(
+          await this.chatJson('describe', messages, 0.8, (count) => (internalAttempts += count)),
+        );
         if (result.description.includes(context.identity.word)) {
           throw new Error('描述包含秘密词');
         }
@@ -126,7 +146,9 @@ export class DeepSeekClient implements GameModel {
     let internalAttempts = 0;
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
-        const result = voteSchema.parse(await this.chatJson(messages, 0.8, (count) => (internalAttempts += count)));
+        const result = voteSchema.parse(
+          await this.chatJson('vote', messages, 0.8, (count) => (internalAttempts += count)),
+        );
         if (!targetIds.includes(result.targetId)) {
           throw new Error(`无效投票目标: ${result.targetId}`);
         }
@@ -172,7 +194,7 @@ export class DeepSeekClient implements GameModel {
     let internalAttempts = 0;
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
-        return reviewSchema.parse(await this.chatJson(messages, 0.45, (count) => (internalAttempts += count)));
+        return reviewSchema.parse(await this.chatJson('review', messages, 0.45, (count) => (internalAttempts += count)));
       } catch (error) {
         lastError = error;
       }
@@ -184,6 +206,7 @@ export class DeepSeekClient implements GameModel {
   }
 
   private async chatJson(
+    task: ModelUsageEvent['task'],
     messages: ChatMessage[],
     temperature = 0.8,
     recordAttempts: (attempts: number) => void = () => {},
@@ -221,7 +244,23 @@ export class DeepSeekClient implements GameModel {
         }
         const payload = (await response.json()) as {
           choices?: Array<{ message?: { content?: string } }>;
+          usage?: {
+            prompt_tokens?: number;
+            completion_tokens?: number;
+            total_tokens?: number;
+          };
         };
+        const usage = parseUsage(payload.usage);
+        if (usage) {
+          this.usageRecorder?.({
+            task,
+            providerAttempt: attempt + 1,
+            inputTokens: usage.inputTokens,
+            outputTokens: usage.outputTokens,
+            totalTokens: usage.totalTokens,
+            source: 'provider',
+          });
+        }
         const content = payload.choices?.[0]?.message?.content;
         if (!content) throw new Error('DeepSeek 返回了空内容');
         return JSON.parse(stripCodeFence(content));
@@ -252,6 +291,18 @@ function stripCodeFence(content: string): string {
     .trim()
     .replace(/^```(?:json)?\s*/i, '')
     .replace(/\s*```$/, '');
+}
+
+function parseUsage(usage: {
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
+} | undefined): Pick<ModelUsageEvent, 'inputTokens' | 'outputTokens' | 'totalTokens'> | null {
+  if (!usage) return null;
+  const inputTokens = Number.isFinite(usage.prompt_tokens) ? Number(usage.prompt_tokens) : 0;
+  const outputTokens = Number.isFinite(usage.completion_tokens) ? Number(usage.completion_tokens) : 0;
+  const totalTokens = Number.isFinite(usage.total_tokens) ? Number(usage.total_tokens) : inputTokens + outputTokens;
+  return { inputTokens, outputTokens, totalTokens };
 }
 
 function classifyDiagnostic(error: unknown): Omit<NonNullable<ModelError['diagnostic']>, 'internalAttempts'> {
