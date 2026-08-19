@@ -64,6 +64,40 @@ export function App() {
     }
   };
 
+  const runDescription = async () => {
+    if (!game) return;
+    const gameId = game.id;
+    setBusy(true);
+    setError('');
+    let acceptingPollUpdates = true;
+    const refresh = () => {
+      void api
+        .getGame(gameId)
+        .then((nextGame) => {
+          if (acceptingPollUpdates) setGame(nextGame);
+        })
+        .catch(() => undefined);
+    };
+    const pollId = window.setInterval(refresh, 250);
+    try {
+      const nextGame = await api.describe(gameId, description);
+      acceptingPollUpdates = false;
+      setGame(nextGame);
+      setDescription('');
+    } catch (actionError) {
+      acceptingPollUpdates = false;
+      try {
+        setGame(await api.getGame(gameId));
+      } catch {
+        // Keep the most recent public state if the recovery read also fails.
+      }
+      setError(actionError instanceof Error ? actionError.message : '发生未知错误');
+    } finally {
+      window.clearInterval(pollId);
+      setBusy(false);
+    }
+  };
+
   const startGame = async () => {
     await runAction(async () => {
       const created = await api.createGame();
@@ -108,7 +142,7 @@ export function App() {
       feedEndRef={feedEndRef}
       onDescriptionChange={setDescription}
       onTargetChange={setSelectedTarget}
-      onDescribe={() => runAction(() => api.describe(game.id, description))}
+      onDescribe={runDescription}
       onVote={() => runAction(() => api.vote(game.id, selectedTarget))}
       onContinue={() => runAction(() => api.continue(game.id))}
       onRestart={restart}
@@ -427,7 +461,7 @@ function GameScreen({
                   <i />
                   <i />
                 </span>
-                {game.phase === 'describing' ? '四位玩家正在斟酌措辞…' : '所有人正在写下选票…'}
+                {game.phase === 'describing' ? descriptionProgress(game) : '所有人正在写下选票…'}
               </div>
             )}
             <div ref={feedEndRef} />
@@ -746,6 +780,15 @@ function phaseTitle(game: PublicGameState): string {
   if (game.phase === 'describing') return '话要留白，意要够真。';
   if (game.ballot > 1) return '同票。最后一次判断。';
   return '谁的描述，偏了一点？';
+}
+
+function descriptionProgress(game: PublicGameState): string {
+  const currentRound = game.descriptions.filter((description) => description.round === game.round);
+  const speakingAgents = game.players.filter((player) => !player.isHuman && player.alive);
+  const completedAiDescriptions = currentRound.filter((description) => description.playerId !== 'human').length;
+  const nextAgent = speakingAgents[completedAiDescriptions];
+  if (nextAgent) return `${nextAgent.name} 正在思考（${currentRound.length + 1}/5）`;
+  return '正在确认本轮公开描述（5/5）';
 }
 
 function roleName(role?: Role | null): string {

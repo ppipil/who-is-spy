@@ -14,6 +14,22 @@ class FailOnFourthDescriptionModel extends FakeGameModel {
   }
 }
 
+class PausedDescriptionModel extends FakeGameModel {
+  private readonly resolvers: Array<() => void> = [];
+
+  override async describe(context: AgentContext): Promise<string> {
+    this.descriptionContexts.push(structuredClone(context));
+    await new Promise<void>((resolve) => this.resolvers.push(resolve));
+    return `公开描述-${context.identity.strategyId}`;
+  }
+
+  releaseNext(): void {
+    const resolve = this.resolvers.shift();
+    if (!resolve) throw new Error('no pending description');
+    resolve();
+  }
+}
+
 describe('GameEngine', () => {
   it('runs a complete game with one human and four isolated AI players', async () => {
     const model = new FakeGameModel();
@@ -66,17 +82,60 @@ describe('GameEngine', () => {
     ).rejects.toThrow('不能直接说出你的秘密词');
   });
 
-  it('does not commit a partial round when the fourth agent fails', async () => {
+  it('commits each successful AI description before the next AI starts', async () => {
+    const model = new PausedDescriptionModel();
+    const engine = new GameEngine(model, () => 0);
+    const game = engine.createGame();
+    const pending = engine.submitHumanDescription(game.id, '经常出现在普通生活里');
+
+    await waitFor(() => model.descriptionContexts.length === 1);
+    expect(roundDescriptionIds(engine, game.id)).toEqual(['human']);
+    expect(engine.getInternalGame(game.id).phase).toBe('describing');
+
+    model.releaseNext();
+    await waitFor(() => model.descriptionContexts.length === 2);
+    expect(roundDescriptionIds(engine, game.id)).toEqual(['human', 'ai-1']);
+
+    model.releaseNext();
+    await waitFor(() => model.descriptionContexts.length === 3);
+    expect(roundDescriptionIds(engine, game.id)).toEqual(['human', 'ai-1', 'ai-2']);
+
+    model.releaseNext();
+    await waitFor(() => model.descriptionContexts.length === 4);
+    expect(roundDescriptionIds(engine, game.id)).toEqual(['human', 'ai-1', 'ai-2', 'ai-3']);
+
+    model.releaseNext();
+    await expect(pending).resolves.toMatchObject({ phase: 'voting' });
+    expect(roundDescriptionIds(engine, game.id)).toEqual(['human', 'ai-1', 'ai-2', 'ai-3', 'ai-4']);
+    expect(
+      model.descriptionContexts.map(
+        (context) =>
+          context.game.publicDescriptions.filter(
+            (description) => description.round === 1 && description.playerId !== 'human',
+          ).length,
+      ),
+    ).toEqual([0, 1, 2, 3]);
+  });
+
+  it('keeps successful descriptions public and stays describing when the fourth agent fails', async () => {
     const model = new FailOnFourthDescriptionModel();
     const engine = new GameEngine(model, () => 0);
     const game = engine.createGame();
-    const before = structuredClone(engine.getInternalGame(game.id));
 
     await expect(engine.submitHumanDescription(game.id, '经常出现在普通生活里')).rejects.toThrow(
       'injected fourth-agent failure',
     );
 
-    expect(engine.getInternalGame(game.id)).toEqual(before);
+    const after = engine.getInternalGame(game.id);
+    expect(after.phase).toBe('describing');
+    expect(roundDescriptionIds(engine, game.id)).toEqual(['human', 'ai-1', 'ai-2', 'ai-3']);
+    expect(after.events.filter((event) => event.type === 'description').map((event) => event.playerId)).toEqual([
+      'human',
+      'ai-1',
+      'ai-2',
+      'ai-3',
+    ]);
+    expect(after.events.some((event) => event.text === '所有人描述完毕。观察措辞，投出你最怀疑的一票。')).toBe(false);
     expect(model.descriptionContexts).toHaveLength(4);
     expect(
       model.descriptionContexts.map(
@@ -88,3 +147,16 @@ describe('GameEngine', () => {
     ).toEqual([0, 1, 2, 3]);
   });
 });
+
+function roundDescriptionIds(engine: GameEngine, gameId: string): string[] {
+  const game = engine.getInternalGame(gameId);
+  return game.descriptions.filter((description) => description.round === game.round).map((description) => description.playerId);
+}
+
+async function waitFor(condition: () => boolean): Promise<void> {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    if (condition()) return;
+    await Promise.resolve();
+  }
+  throw new Error('condition was not reached');
+}
