@@ -59,3 +59,5 @@
 策略里程碑验证:`npm run test:node` 为 5 文件/10 测试通过;`npm run contract:node` 为 28/28;`npm run build` 通过;相同 seed 的 Fake eval 为 20/20 完局、四策略独立聚合、同质化 0。真实模型记录保持空白,直到实际调用成功。
 
 顺序编排验证:`npm run test:node` 为 5 文件/11 测试通过(含 `0→1→2→3` 与第四 Agent 故障原子性);契约 28/28、Fake eval 20/20、build 通过。
+
+M4 质量门禁验证:`npm.cmd test --workspace packages/server-node` 为 6 文件/23 测试通过;`npm.cmd run contract:node` 为 28/28;`npm.cmd run build` 通过。Fake eval(`--games 20 --seed 42 --model fake`) 为 20/20 完局、validVoteRate 100%、invalidOutputRate 0、Gate PASS。DeepSeek smoke(`--games 3 --seed 42 --model real`) 为 3/3 完局、validVoteRate 100%、secretLeakRejectRate 5%、retryRate 5%、最终公开 description exact leak 0、token 69,295、估算成本 0.0156 USD。详见 `docs/evidence/m4-quality-gate/summary.md`。M4 只治理 description;vote/review gate、alias/semantic gate、fallback/replay 和大样本对比分别留给后续阶段。
