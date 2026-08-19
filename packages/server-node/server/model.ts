@@ -45,6 +45,17 @@ interface ChatMessage {
 
 export type ModelTransport = typeof fetch;
 
+export interface ModelUsageEvent {
+  task: 'describe' | 'vote' | 'review';
+  providerAttempt: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  source: 'provider';
+}
+
+export type ModelUsageRecorder = (event: ModelUsageEvent) => void;
+
 export interface GameModel {
   readonly model: string;
   isConfigured(): boolean;
@@ -52,6 +63,7 @@ export interface GameModel {
   vote(context: AgentContext, allowedTargets: Player[]): Promise<{ targetId: string; reason: string }>;
   review(game: GameState): Promise<GameReview>;
   setTraceSink?(sink: TraceSink): void;
+  setUsageRecorder?(recorder: ModelUsageRecorder): void;
 }
 
 export class DeepSeekClient implements GameModel {
@@ -60,17 +72,30 @@ export class DeepSeekClient implements GameModel {
   private readonly baseUrl: string;
   private readonly transport: ModelTransport;
   private traceSink?: TraceSink;
+  private usageRecorder?: ModelUsageRecorder;
 
-  constructor(options?: { apiKey?: string; baseUrl?: string; model?: string; traceSink?: TraceSink; transport?: ModelTransport }) {
+  constructor(options?: {
+    apiKey?: string;
+    baseUrl?: string;
+    model?: string;
+    traceSink?: TraceSink;
+    transport?: ModelTransport;
+    usageRecorder?: ModelUsageRecorder;
+  }) {
     this.apiKey = options?.apiKey ?? process.env.DEEPSEEK_API_KEY ?? '';
     this.baseUrl = (options?.baseUrl ?? process.env.DEEPSEEK_BASE_URL ?? 'https://api.deepseek.com').replace(/\/$/, '');
     this.model = options?.model ?? process.env.DEEPSEEK_MODEL ?? 'deepseek-v4-flash';
     this.traceSink = options?.traceSink;
     this.transport = options?.transport ?? fetch;
+    this.usageRecorder = options?.usageRecorder;
   }
 
   setTraceSink(sink: TraceSink): void {
     this.traceSink = sink;
+  }
+
+  setUsageRecorder(recorder: ModelUsageRecorder): void {
+    this.usageRecorder = recorder;
   }
 
   isConfigured(): boolean {
@@ -238,7 +263,9 @@ export class DeepSeekClient implements GameModel {
       if (!response.ok) throw httpModelError(response.status, attempt);
       const payload = (await response.json()) as {
         choices?: Array<{ message?: { content?: string } }>;
+        usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
       };
+      this.recordUsage(task, attempt, payload.usage);
       const content = payload.choices?.[0]?.message?.content;
       if (!content) {
         throw new ModelError('AI 返回了空内容', undefined, {
@@ -263,6 +290,27 @@ export class DeepSeekClient implements GameModel {
     } finally {
       clearTimeout(timeout);
     }
+  }
+
+  private recordUsage(
+    task: ModelUsageEvent['task'],
+    providerAttempt: number,
+    usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | undefined,
+  ): void {
+    if (!usage || !this.usageRecorder) return;
+    const inputTokens = Number.isFinite(usage.prompt_tokens) ? (usage.prompt_tokens ?? 0) : 0;
+    const outputTokens = Number.isFinite(usage.completion_tokens) ? (usage.completion_tokens ?? 0) : 0;
+    const totalTokens = Number.isFinite(usage.total_tokens)
+      ? (usage.total_tokens ?? inputTokens + outputTokens)
+      : inputTokens + outputTokens;
+    this.usageRecorder({
+      task,
+      providerAttempt,
+      inputTokens,
+      outputTokens,
+      totalTokens,
+      source: 'provider',
+    });
   }
 
   private traceModelCall(
