@@ -24,7 +24,16 @@ const reviewSchema = z.object({
 });
 
 export class ModelError extends Error {
-  constructor(message: string, public readonly cause?: unknown) {
+  constructor(
+    message: string,
+    public readonly cause?: unknown,
+    public readonly diagnostic?: {
+      errorType: 'timeout' | 'http' | 'schema' | 'validation' | 'secret' | 'unknown';
+      httpStatus?: number;
+      schemaFields?: string[];
+      internalAttempts: number;
+    },
+  ) {
     super(message);
     this.name = 'ModelError';
   }
@@ -76,9 +85,10 @@ export class DeepSeekClient implements GameModel {
     ];
 
     let lastError: unknown;
+    let internalAttempts = 0;
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
-        const result = descriptionSchema.parse(await this.chatJson(messages));
+        const result = descriptionSchema.parse(await this.chatJson(messages, 0.8, (count) => (internalAttempts += count)));
         if (result.description.includes(context.identity.word)) {
           throw new Error('描述包含秘密词');
         }
@@ -87,7 +97,10 @@ export class DeepSeekClient implements GameModel {
         lastError = error;
       }
     }
-    throw new ModelError('AI 未能生成合规描述，已自动重试；请再试一次', lastError);
+    throw new ModelError('AI 未能生成合规描述，已自动重试；请再试一次', lastError, {
+      ...classifyDiagnostic(lastError),
+      internalAttempts,
+    });
   }
 
   async vote(context: AgentContext, allowedTargets: Player[]): Promise<{ targetId: string; reason: string }> {
@@ -110,9 +123,10 @@ export class DeepSeekClient implements GameModel {
     ];
 
     let lastError: unknown;
+    let internalAttempts = 0;
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
-        const result = voteSchema.parse(await this.chatJson(messages));
+        const result = voteSchema.parse(await this.chatJson(messages, 0.8, (count) => (internalAttempts += count)));
         if (!targetIds.includes(result.targetId)) {
           throw new Error(`无效投票目标: ${result.targetId}`);
         }
@@ -121,7 +135,10 @@ export class DeepSeekClient implements GameModel {
         lastError = error;
       }
     }
-    throw new ModelError('AI 未能生成有效选票，已自动重试；请再试一次', lastError);
+    throw new ModelError('AI 未能生成有效选票，已自动重试；请再试一次', lastError, {
+      ...classifyDiagnostic(lastError),
+      internalAttempts,
+    });
   }
 
   async review(game: GameState): Promise<GameReview> {
@@ -152,23 +169,34 @@ export class DeepSeekClient implements GameModel {
       },
     ];
     let lastError: unknown;
+    let internalAttempts = 0;
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
-        return reviewSchema.parse(await this.chatJson(messages, 0.45));
+        return reviewSchema.parse(await this.chatJson(messages, 0.45, (count) => (internalAttempts += count)));
       } catch (error) {
         lastError = error;
       }
     }
-    throw new ModelError('AI 未能生成结构化复盘', lastError);
+    throw new ModelError('AI 未能生成结构化复盘', lastError, {
+      ...classifyDiagnostic(lastError),
+      internalAttempts,
+    });
   }
 
-  private async chatJson(messages: ChatMessage[], temperature = 0.8): Promise<unknown> {
+  private async chatJson(
+    messages: ChatMessage[],
+    temperature = 0.8,
+    recordAttempts: (attempts: number) => void = () => {},
+  ): Promise<unknown> {
     if (!this.isConfigured()) {
       throw new ModelError('未配置 DEEPSEEK_API_KEY，请复制 .env.example 为 .env 后填写密钥');
     }
 
     let lastError: unknown;
+    let lastDiagnostic: Omit<NonNullable<ModelError['diagnostic']>, 'internalAttempts'> = { errorType: 'unknown' };
+    let attempts = 0;
     for (let attempt = 0; attempt < 2; attempt += 1) {
+      attempts += 1;
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 30_000);
       try {
@@ -187,8 +215,9 @@ export class DeepSeekClient implements GameModel {
           signal: controller.signal,
         });
         if (!response.ok) {
-          const detail = await response.text();
-          throw new Error(`DeepSeek ${response.status}: ${detail.slice(0, 240)}`);
+          await response.text();
+          lastDiagnostic = { errorType: 'http', httpStatus: response.status };
+          throw new Error(`DeepSeek ${response.status}`);
         }
         const payload = (await response.json()) as {
           choices?: Array<{ message?: { content?: string } }>;
@@ -198,12 +227,23 @@ export class DeepSeekClient implements GameModel {
         return JSON.parse(stripCodeFence(content));
       } catch (error) {
         lastError = error;
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          lastDiagnostic = { errorType: 'timeout' };
+        } else if (error instanceof SyntaxError) {
+          lastDiagnostic = { errorType: 'schema' };
+        } else if (lastDiagnostic.errorType === 'unknown') {
+          lastDiagnostic = { errorType: 'unknown' };
+        }
         if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 600));
       } finally {
         clearTimeout(timeout);
       }
     }
-    throw new ModelError('AI 服务暂时不可用，已自动重试；请稍后再试', lastError);
+    recordAttempts(attempts);
+    throw new ModelError('AI 服务暂时不可用，已自动重试；请稍后再试', lastError, {
+      ...lastDiagnostic,
+      internalAttempts: attempts,
+    });
   }
 }
 
@@ -212,4 +252,21 @@ function stripCodeFence(content: string): string {
     .trim()
     .replace(/^```(?:json)?\s*/i, '')
     .replace(/\s*```$/, '');
+}
+
+function classifyDiagnostic(error: unknown): Omit<NonNullable<ModelError['diagnostic']>, 'internalAttempts'> {
+  if (error instanceof ModelError && error.diagnostic) {
+    const { internalAttempts: _internalAttempts, ...diagnostic } = error.diagnostic;
+    return diagnostic;
+  }
+  if (error instanceof z.ZodError) {
+    return { errorType: 'schema', schemaFields: [...new Set(error.issues.map((issue) => issue.path.join('.')))] };
+  }
+  if (error instanceof Error && error.message === '描述包含秘密词') {
+    return { errorType: 'secret' };
+  }
+  if (error instanceof Error && error.message.startsWith('无效投票目标:')) {
+    return { errorType: 'validation' };
+  }
+  return { errorType: 'unknown' };
 }
