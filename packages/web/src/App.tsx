@@ -579,6 +579,14 @@ function ActionDock({
             placeholder="例如：它通常会在安静的时候出现…"
             maxLength={60}
             disabled={busy}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+                event.preventDefault();
+                if (!busy && description.trim().length >= 2) {
+                  onDescribe();
+                }
+              }
+            }}
           />
           <span>{description.trim().length}/60</span>
           <button

@@ -1052,14 +1052,18 @@ textarea:focus-visible {
 
 .description-input {
   position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
 }
 
 .description-input textarea {
+  flex: 1;
+  min-width: 0;
   display: block;
-  width: 100%;
   height: 60px;
   resize: none;
-  padding: 11px 56px 11px 13px;
+  padding: 11px 13px;
   color: var(--ink);
   border: 1px solid rgba(33, 30, 25, 0.2);
   border-radius: 1px;
@@ -1074,7 +1078,7 @@ textarea:focus-visible {
 
 .description-input > span {
   position: absolute;
-  right: 48px;
+  left: 14px;
   bottom: 7px;
   color: #a0988d;
   font-family: var(--mono);
@@ -1082,12 +1086,11 @@ textarea:focus-visible {
 }
 
 .send-button {
-  position: absolute;
-  top: 8px;
-  right: 8px;
+  position: static;
+  flex: none;
   display: grid;
-  width: 38px;
-  height: 44px;
+  width: 44px;
+  height: 60px;
   place-items: center;
   color: white;
   border: 0;
