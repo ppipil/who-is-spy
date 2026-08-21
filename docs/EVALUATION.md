@@ -55,3 +55,31 @@ These thresholds are exact because FakeModel and engine randomness are controlle
 - Rejection and retry rates remain zero until typed quality/trace events enter the evaluator.
 - FakeModel outcome rates prove regression behavior, not real-model Agent quality.
 
+## Admin console batch evaluation
+
+The same harness is exposed as an on-demand developer-console workflow (no auth, demo-only):
+
+```bash
+ENABLE_ADMIN_CONSOLE=1 npm run dev:node   # backend, default http://localhost:8787
+npm run dev:web                          # frontend, http://localhost:5173/admin → Evaluation tab
+```
+
+API:
+
+- `POST /api/admin/evaluation/run` with `{ games, seed, model }` returns `202 { runId }`; only one run may be active at a time (`409` otherwise). `games` is validated to 1–100, `model` to `fake|real`; `real` requires provider configuration (`400` otherwise).
+- `GET /api/admin/evaluation/runs` lists in-memory run history with gate result and key metrics.
+- `GET /api/admin/evaluation/runs/:runId` returns progress while running, then the full schema-versioned result.
+- `GET /api/admin/evaluation` still serves the canonical M6 baseline-vs-final evidence used for delta comparison.
+
+The page shows live progress (`completed/total games`), a PASS/FAIL gate banner with the exact failure list, a metrics table with delta vs the canonical baseline, per-strategy win/vote breakdown, token usage (input/output/total and per-task) and estimated cost when the provider returns usage, safety detail, and a run history with a reproducibility badge for repeated `fake` runs with the same seed.
+
+### Trace association
+
+Evaluation runs are linked to the admin trace: every run stamps its events with `runId` and `source: 'evaluation'`, and publishes per-game lifecycle events (`evaluation_game_start` / `evaluation_game_completed` / `evaluation_game_failed`). Real-model runs also carry the underlying `model_call`, `quality_violation`, and `prompt_provenance` events with the same stamp. `GET /api/admin/traces?runId=…` filters to one run, and the Evaluation page has a “在 Trace 中查看本评测” action that jumps to the Trace tab pre-filtered by that run. This makes gate failures diagnosable (e.g. which game aborted and why), instead of only seeing aggregate counts.
+
+Each evaluation game also publishes its **public** per-round content to the trace: every committed description (`publicEventType: 'description'`) and vote with reason (`publicEventType: 'vote_result'`), so the Trace tab shows what each agent actually said and how they voted. Exact game words are redacted as `[SECRET]` before publishing; only content that was already public in the game is exposed.
+
+## Live token and cost measurement
+
+`runEvaluation` now records provider `usage` when the model exposes it (`DeepSeekClient.setUsageRecorder`). When a real-model run returns `usage`, the report includes input/output/total tokens, per-game averages, per-task splits (describe/vote/review), and an estimated cost using the DeepSeek `deepseek-chat` public price snapshot ($0.27/$1.10 per 1M tokens, USD) with the formula recorded in `cost.formula`. Fake runs report `source: 'unavailable'` for both. The CLI prints the same fields.
+
