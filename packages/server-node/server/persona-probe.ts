@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { listAgentStrategies } from './agent-strategy.js';
 import { DeepSeekClient } from './model.js';
 import { buildDescribePrompt, buildVotePrompt, renderPromptHash } from './prompt.js';
+import type { TraceOrigin } from './trace.js';
 import type { AgentContext, AgentStrategyId, Player } from './types.js';
 
 const ALIVE_PLAYERS = [
@@ -57,6 +58,8 @@ function fixedCase(strategyId: AgentStrategyId): AgentContext {
 async function main(): Promise<void> {
   const showPrompts = process.argv.includes('--prompts');
   const client = new DeepSeekClient();
+  const origin: TraceOrigin = { sourceType: 'CLI_DEMO', entrypoint: 'cli', modelKind: 'real' };
+  client.setOrigin?.(origin);
   if (!client.isConfigured()) {
     console.error(
       '未配置 DEEPSEEK_API_KEY，无法运行真实模型 persona-probe；Fake 不能冒充真实行为。请先在 .env 配置 DEEPSEEK_API_KEY。',

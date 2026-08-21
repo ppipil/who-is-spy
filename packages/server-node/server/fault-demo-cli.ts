@@ -1,3 +1,6 @@
+/**
+ * 故障注入演示 CLI：用脚本化故障跑一局，展示重试/恢复/回放行为。
+ */
 import path from 'node:path';
 import { GameEngine } from './game-engine.js';
 import { FaultInjectingModel, scenarioFaults } from './fault-injection.js';
@@ -9,7 +12,9 @@ import {
   displayAgent,
   errorLabel,
   replayTrace,
+  stampTraceOrigin,
   type ModelCallTraceEvent,
+  type TraceOrigin,
 } from './trace.js';
 
 interface Options {
@@ -37,7 +42,9 @@ async function main(): Promise<void> {
     return;
   }
   const memoryTrace = new InMemoryTraceSink();
-  const traceSink = new CompositeTraceSink([memoryTrace, new JsonlTraceSink(options.traceFile)]);
+  const rawSink = new CompositeTraceSink([memoryTrace, new JsonlTraceSink(options.traceFile)]);
+  const origin: TraceOrigin = { sourceType: 'CLI_DEMO', entrypoint: 'cli', modelKind: 'fake' };
+  const traceSink = stampTraceOrigin(rawSink, origin);
   const engine = new GameEngine(new FaultInjectingModel(scenarioFaults(options.scenario)), fixedRandom(), undefined, traceSink);
   let game = engine.createGame();
   const result: DemoResult = {

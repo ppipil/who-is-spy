@@ -1,9 +1,18 @@
+/**
+ * 运行时 Trace（可观测性）
+ *
+ * 统一收集模型调用、公开事件、恢复动作、prompt 溯源与质量违例，
+ * 支持内存/控制台/JSONL/复合四种 sink，并可将单局事件重放为可读文本。
+ * 评测通过 runId 关联：admin 后台可按 run 过滤查看整次评测的事件链。
+ */
 import fs from 'node:fs';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
+import { fileURLToPath } from 'node:url';
 
 export type ModelTask = 'describe' | 'vote' | 'review';
 
+/** 模型错误分类：用于 trace 展示与重试判定。 */
 export type ModelErrorType =
   | 'timeout'
   | 'rate_limit'
@@ -15,6 +24,7 @@ export type ModelErrorType =
   | 'secret'
   | 'unknown';
 
+/** 模型调用诊断信息：错误类型、HTTP 状态、是否可重试、第几次尝试。 */
 export interface ModelDiagnostic {
   errorType: ModelErrorType;
   httpStatus?: number;
@@ -24,6 +34,21 @@ export interface ModelDiagnostic {
 
 export type TraceOutcome = 'success' | 'failure' | 'fallback';
 
+/** 运行来源：真实游玩 / Admin 实验台 / 评测 / 控制台脚本 / 测试。 */
+export type TraceSourceType = 'USER_GAME' | 'ADMIN_PROBE' | 'EVAL_RUN' | 'CLI_DEMO' | 'TEST';
+/** 触发入口：Web / Admin / CLI / 测试。 */
+export type TraceEntrypoint = 'web' | 'admin' | 'cli' | 'test';
+/** 模型类型：真实 / 假模型 / 无模型调用。 */
+export type TraceModelKind = 'real' | 'fake' | 'none';
+
+/** 统一来源标记：所有 runtime trace 事件与 prompt 记录都携带。 */
+export interface TraceOrigin {
+  sourceType: TraceSourceType;
+  entrypoint: TraceEntrypoint;
+  modelKind: TraceModelKind;
+}
+
+/** 模型调用事件：一次 describe/vote/review 尝试的完整记录。 */
 export interface ModelCallTraceEvent {
   eventType: 'model_call';
   timestamp: string;
@@ -42,8 +67,12 @@ export interface ModelCallTraceEvent {
   latencyMs: number;
   willRetry: boolean;
   outcome: TraceOutcome;
+  sourceType?: TraceSourceType;
+  entrypoint?: TraceEntrypoint;
+  modelKind?: TraceModelKind;
 }
 
+/** 公开事件：描述发布、阶段切换、淘汰、平票等对局内公开内容。 */
 export interface PublicRuntimeTraceEvent {
   eventType: 'public_event';
   timestamp: string;
@@ -53,11 +82,16 @@ export interface PublicRuntimeTraceEvent {
   phase: string;
   ballot?: number;
   publicEventType: string;
+  text?: string;
   agentId?: string;
   agentName?: string;
   outcome: TraceOutcome;
+  sourceType?: TraceSourceType;
+  entrypoint?: TraceEntrypoint;
+  modelKind?: TraceModelKind;
 }
 
+/** 恢复动作：描述生成失败后的手动恢复（开始/成功/耗尽）。 */
 export interface RecoveryActionTraceEvent {
   eventType: 'recovery_action';
   timestamp: string;
@@ -72,8 +106,12 @@ export interface RecoveryActionTraceEvent {
   manualResumeIndex: number;
   manualRetriesRemaining: number;
   recoveryOutcome?: 'recovered' | 'exhausted';
+  sourceType?: TraceSourceType;
+  entrypoint?: TraceEntrypoint;
+  modelKind?: TraceModelKind;
 }
 
+/** prompt 溯源：记录实际发送的 prompt 版本、hash 与公开上下文规模。 */
 export interface PromptProvenanceTraceEvent {
   eventType: 'prompt_provenance';
   timestamp: string;
@@ -92,41 +130,106 @@ export interface PromptProvenanceTraceEvent {
   sameRoundPublicDescriptionCount: number;
   strategyGuidance?: string;
   repairViolationType?: string;
+  sourceType?: TraceSourceType;
+  entrypoint?: TraceEntrypoint;
+  modelKind?: TraceModelKind;
 }
 
+/** 质量违例：AI 描述被服务端质量门禁拒绝的事件（含是否重试）。 */
+export interface QualityViolationTraceEvent {
+  eventType: 'quality_violation';
+  timestamp: string;
+  sequence: number;
+  gameId: string;
+  round: number;
+  agentId: string;
+  strategyId?: string;
+  attempt: number;
+  violationType: string;
+  willRetry: boolean;
+  sourceType?: TraceSourceType;
+  entrypoint?: TraceEntrypoint;
+  modelKind?: TraceModelKind;
+}
+
+/** 全部 trace 事件类型；draft 为未打时间戳/序号前的输入形态。 */
 export type RuntimeTraceEvent =
   | ModelCallTraceEvent
   | PublicRuntimeTraceEvent
   | RecoveryActionTraceEvent
-  | PromptProvenanceTraceEvent;
+  | PromptProvenanceTraceEvent
+  | QualityViolationTraceEvent;
 export type RuntimeTraceDraft =
   | Omit<ModelCallTraceEvent, 'timestamp' | 'sequence'>
   | Omit<PublicRuntimeTraceEvent, 'timestamp' | 'sequence'>
   | Omit<RecoveryActionTraceEvent, 'timestamp' | 'sequence'>
-  | Omit<PromptProvenanceTraceEvent, 'timestamp' | 'sequence'>;
+  | Omit<PromptProvenanceTraceEvent, 'timestamp' | 'sequence'>
+  | Omit<QualityViolationTraceEvent, 'timestamp' | 'sequence'>;
 
 export interface TraceSink {
   record(event: RuntimeTraceDraft): void;
 }
 
+/** 包装 sink：给途经的所有事件统一打来源标记（在采集边界 stamp，不改业务逻辑）。 */
+export function stampTraceOrigin(sink: TraceSink, origin: TraceOrigin): TraceSink {
+  return {
+    record: (event) => {
+      sink.record({
+        ...event,
+        sourceType: origin.sourceType,
+        entrypoint: origin.entrypoint,
+        modelKind: origin.modelKind,
+      } as unknown as RuntimeTraceDraft);
+    },
+  };
+}
+
+/** Admin 默认历史文件（启用 admin 且未显式配置 M5_TRACE_JSONL 时使用）。 */
+export const DEFAULT_ADMIN_TRACE_PATH = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../traces/runtime-trace.jsonl',
+);
+
+/** 内存 sink：admin 后台查询用，按序追加并自动编号；可预填历史并外发完整事件。 */
 export class InMemoryTraceSink implements TraceSink {
   readonly events: RuntimeTraceEvent[] = [];
   private sequence = 0;
 
+  constructor(
+    initialEvents: RuntimeTraceEvent[] = [],
+    private readonly onRecorded?: (event: RuntimeTraceEvent) => void,
+  ) {
+    if (initialEvents.length > 0) {
+      this.events.push(...initialEvents);
+      this.sequence = Math.max(
+        ...initialEvents.map((event) => (Number.isFinite(event.sequence) ? Number(event.sequence) : 0)),
+        0,
+      );
+    }
+  }
+
   record(event: RuntimeTraceDraft): void {
-    this.events.push({ ...event, timestamp: new Date().toISOString(), sequence: ++this.sequence } as RuntimeTraceEvent);
+    const full = { ...event, timestamp: new Date().toISOString(), sequence: ++this.sequence } as RuntimeTraceEvent;
+    this.events.push(full);
+    this.onRecorded?.(full);
   }
 }
 
+/** 控制台 sink：把事件格式化为一行人类可读文本输出到 stderr。 */
 export class ConsoleTraceSink implements TraceSink {
   private sequence = 0;
 
   record(event: RuntimeTraceDraft): void {
     const full = { ...event, timestamp: new Date().toISOString(), sequence: ++this.sequence } as RuntimeTraceEvent;
-    console.error(formatTraceLine(full));
+    this.recordFull(full);
+  }
+
+  recordFull(event: RuntimeTraceEvent): void {
+    console.error(formatTraceLine(event));
   }
 }
 
+/** JSONL sink：追加写入指定文件，每行一个完整事件。 */
 export class JsonlTraceSink implements TraceSink {
   private sequence = 0;
 
@@ -136,10 +239,16 @@ export class JsonlTraceSink implements TraceSink {
 
   record(event: RuntimeTraceDraft): void {
     const full = { ...event, timestamp: new Date().toISOString(), sequence: ++this.sequence } as RuntimeTraceEvent;
-    fs.appendFileSync(this.filePath, `${JSON.stringify(full)}\n`, 'utf8');
+    this.recordFull(full);
+  }
+
+  /** 写入已编号的完整事件（用于与内存 sink 共用同一 sequence 的持久化链路）。 */
+  recordFull(event: RuntimeTraceEvent): void {
+    fs.appendFileSync(this.filePath, `${JSON.stringify(event)}\n`, 'utf8');
   }
 }
 
+/** 复合 sink：同一事件同时写入多个下游。 */
 export class CompositeTraceSink implements TraceSink {
   constructor(private readonly sinks: readonly TraceSink[]) {}
 
@@ -148,6 +257,7 @@ export class CompositeTraceSink implements TraceSink {
   }
 }
 
+/** 按环境变量装配 sink：M5_TRACE_CONSOLE=1 启用控制台，M5_TRACE_JSONL 指定文件。 */
 export function createTraceSinkFromEnv(): TraceSink | undefined {
   const sinks: TraceSink[] = [];
   if (process.env.M5_TRACE_CONSOLE === '1') sinks.push(new ConsoleTraceSink());
@@ -156,12 +266,14 @@ export function createTraceSinkFromEnv(): TraceSink | undefined {
   return sinks.length === 0 ? undefined : new CompositeTraceSink(sinks);
 }
 
+/** 测量一次异步操作耗时（毫秒，4 位小数）。 */
 export async function measureLatency<T>(operation: () => Promise<T>): Promise<{ result: T; latencyMs: number }> {
   const startedAt = performance.now();
   const result = await operation();
   return { result, latencyMs: round(performance.now() - startedAt) };
 }
 
+/** 把单条事件格式化为人类可读的一行（控制台 sink 与 CLI 使用）。 */
 export function formatTraceLine(event: RuntimeTraceEvent): string {
   if (event.eventType === 'public_event') {
     return `#${event.sequence} 第${event.round}轮 ${phaseLabel(event.phase)} · 公开事件 ${publicEventLabel(event.publicEventType)}`;
@@ -173,6 +285,9 @@ export function formatTraceLine(event: RuntimeTraceEvent): string {
   if (event.eventType === 'prompt_provenance') {
     return `#${event.sequence} 第${event.round}轮 · 溯源 ${displayAgent(event.agentId)} ${event.task} ${event.promptTemplateVersion} hash=${event.promptHash.slice(0, 12)}（公开 ${event.publicDescriptionCount}，同轮 ${event.sameRoundPublicDescriptionCount}）`;
   }
+  if (event.eventType === 'quality_violation') {
+    return `#${event.sequence} 第${event.round}轮 描述阶段 · 质量门禁 ${displayAgent(event.agentId)} ${event.violationType} #${event.attempt}${event.willRetry ? ' → 修复重试' : ' → 中止'}`;
+  }
   const icon = event.outcome === 'success' ? '✓' : event.outcome === 'fallback' ? '↳' : '✗';
   const actor = displayAgent(event.agentId, event.agentName);
   const error = event.errorType ? ` ${errorLabel(event.errorType)} errorType=${event.errorType}${event.httpStatus ? ` HTTP=${event.httpStatus}` : ''}` : '';
@@ -180,6 +295,10 @@ export function formatTraceLine(event: RuntimeTraceEvent): string {
   return `#${event.sequence} 第${event.round}轮 ${phaseLabel(event.phase)} · ${icon} ${actor} ${event.task} #${event.attempt}${error} ${event.latencyMs}ms${retry}`;
 }
 
+/**
+ * 回放指定对局的 trace：按事件序号排序后转为可读文本行。
+ * groupVoteBatches=true 时按投票批次分组展示（区分私有预生成与整批结算）。
+ */
 export function replayTrace(
   events: readonly RuntimeTraceEvent[],
   gameId: string,
@@ -192,6 +311,7 @@ export function replayTrace(
   return lines.length === 0 ? `未找到对局 ${gameId} 的 trace。` : lines.join('\n');
 }
 
+/** 错误类型 → 中文标签。 */
 export function errorLabel(errorType: ModelErrorType): string {
   const labels: Record<ModelErrorType, string> = {
     timeout: '请求超时',
@@ -207,10 +327,12 @@ export function errorLabel(errorType: ModelErrorType): string {
   return labels[errorType];
 }
 
+/** agent 展示名：有中文名时带 id 显示，否则只显示 id。 */
 export function displayAgent(agentId: string, agentName?: string): string {
   return agentName ? `${agentName}（${agentId}）` : agentId;
 }
 
+/** 单条事件 → 回放文本行（公开事件映射为简短流程描述，失败事件带错误详情）。 */
 function formatReplayEvent(event: RuntimeTraceEvent): string[] {
   if (event.eventType === 'public_event') {
     if (event.publicEventType === 'description') {
@@ -229,6 +351,11 @@ function formatReplayEvent(event: RuntimeTraceEvent): string[] {
     ];
   }
   if (event.eventType === 'prompt_provenance') return [];
+  if (event.eventType === 'quality_violation') {
+    return [
+      `→ 质量门禁：${event.violationType}（${event.agentId} #${event.attempt}）${event.willRetry ? '，修复重试' : '，中止'}`,
+    ];
+  }
   if (event.outcome === 'success') {
     if (event.task === 'vote' && !hasNearbyFailure(event)) return [];
     const suffix = event.task === 'vote' ? '成功（私有候选，等待整批结算）' : '成功';
@@ -246,10 +373,12 @@ function formatReplayEvent(event: RuntimeTraceEvent): string[] {
   return details;
 }
 
+/** 保留位：判断成功投票附近是否有失败（当前固定为 true，避免冗长输出）。 */
 function hasNearbyFailure(_event: ModelCallTraceEvent): boolean {
   return true;
 }
 
+/** 按投票批次分组回放：标出每一批私有预生成、整批丢弃与整批结算。 */
 function formatGroupedVoteReplay(events: RuntimeTraceEvent[]): string[] {
   const lines: string[] = [];
   let voteBatch = 0;
@@ -272,6 +401,10 @@ function formatGroupedVoteReplay(events: RuntimeTraceEvent[]): string[] {
       continue;
     }
     if (event.eventType === 'prompt_provenance') continue;
+    if (event.eventType === 'quality_violation') {
+      lines.push(...formatReplayEvent(event));
+      continue;
+    }
     if (event.task === 'vote' && voteBatch === 0) {
       voteBatch += 1;
       lines.push('【第一次 ballot batch：私有预生成】');
@@ -292,6 +425,7 @@ function formatGroupedVoteReplay(events: RuntimeTraceEvent[]): string[] {
   return lines;
 }
 
+/** 阶段 → 中文标签。 */
 function phaseLabel(phase: string): string {
   const labels: Record<string, string> = {
     describing: '描述阶段',
@@ -302,6 +436,7 @@ function phaseLabel(phase: string): string {
   return labels[phase] ?? phase;
 }
 
+/** 公开事件类型 → 中文标签。 */
 function publicEventLabel(type: string): string {
   const labels: Record<string, string> = {
     description: '公开描述',
@@ -312,15 +447,26 @@ function publicEventLabel(type: string): string {
   return labels[type] ?? type;
 }
 
+/** 读取 JSONL trace 文件为事件数组。 */
 export function readJsonlTrace(filePath: string): RuntimeTraceEvent[] {
   if (!fs.existsSync(filePath)) return [];
-  return fs
-    .readFileSync(filePath, 'utf8')
-    .split(/\r?\n/)
-    .filter(Boolean)
-    .map((line) => JSON.parse(line) as RuntimeTraceEvent);
+  const events: RuntimeTraceEvent[] = [];
+  let skipped = 0;
+  for (const line of fs.readFileSync(filePath, 'utf8').split(/\r?\n/)) {
+    if (!line.trim()) continue;
+    try {
+      events.push(JSON.parse(line) as RuntimeTraceEvent);
+    } catch {
+      skipped += 1;
+    }
+  }
+  if (skipped > 0) {
+    console.warn(`[trace] 跳过 ${skipped} 条损坏的 JSONL 行（${filePath}）`);
+  }
+  return events;
 }
 
+/** 四舍五入到 4 位小数。 */
 function round(value: number): number {
   return Math.round(value * 10_000) / 10_000;
 }

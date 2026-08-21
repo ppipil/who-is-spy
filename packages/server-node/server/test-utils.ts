@@ -1,8 +1,10 @@
 import type { AgentContext, GameReview, GameState, Player } from './types.js';
 import type { GameModel } from './model.js';
+import type { TraceModelKind } from './trace.js';
 
 export class FakeGameModel implements GameModel {
   readonly model = 'deepseek-v4-flash-test-double';
+  readonly modelKind: TraceModelKind = 'fake';
   readonly descriptionContexts: AgentContext[] = [];
   readonly voteContexts: AgentContext[] = [];
 

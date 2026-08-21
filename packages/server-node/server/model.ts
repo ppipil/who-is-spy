@@ -1,3 +1,11 @@
+/**
+ * 模型客户端（DeepSeek / OpenAI 兼容）
+ *
+ * - describe/vote/review 三个任务统一走 chat/completions JSON 模式；
+ * - 每次调用自动重试一次（仅对可重试错误），并记录 model_call trace；
+ * - 从 provider 响应 usage 中记录 token 用量（评测成本指标的数据源）；
+ * - prompt 溯源与脱敏调试记录由 prompt.ts 提供。
+ */
 import { performance } from 'node:perf_hooks';
 import { z } from 'zod';
 import type { DescriptionRequest } from './description-quality.js';
@@ -10,18 +18,28 @@ import {
   type RenderedPrompt,
 } from './prompt.js';
 import type { AgentContext, GameReview, GameState, Player } from './types.js';
-import type { ModelDiagnostic, ModelErrorType, ModelTask, TraceSink } from './trace.js';
+import type {
+  ModelDiagnostic,
+  ModelErrorType,
+  ModelTask,
+  TraceModelKind,
+  TraceOrigin,
+  TraceSink,
+} from './trace.js';
 
+// 描述响应 schema：description 必填，私有推理摘要可选。
 const descriptionSchema = z.object({
   description: z.string().trim().min(2).max(60),
   private_reasoning_summary: z.string().trim().min(1).max(120).optional(),
 });
 
+// 投票响应 schema：targetId 必须来自服务端下发的候选。
 const voteSchema = z.object({
   targetId: z.string().min(1),
   reason: z.string().trim().min(2).max(80),
 });
 
+// 复盘响应 schema：标题/摘要/转折点/每人洞察，字段都有长度约束。
 const reviewSchema = z.object({
   headline: z.string().trim().min(2).max(40),
   summary: z.string().trim().min(10).max(300),
@@ -34,6 +52,7 @@ const reviewSchema = z.object({
   ),
 });
 
+/** 模型层错误：附带诊断信息（错误类型、HTTP 状态、可重试性）。 */
 export class ModelError extends Error {
   constructor(
     message: string,
@@ -52,55 +71,100 @@ interface ChatMessage {
 
 export type ModelTransport = typeof fetch;
 
+/** provider 返回的 token 用量事件（一次真实调用一条）。 */
+export interface ModelUsageEvent {
+  task: 'describe' | 'vote' | 'review';
+  providerAttempt: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  source: 'provider';
+}
+
+/** 用量回调类型：评测 harness 用它收集 token 数据。 */
+export type ModelUsageRecorder = (event: ModelUsageEvent) => void;
+
+/** 模型接口：引擎只依赖这三个任务 + 可选 trace/usage 回调。 */
 export interface GameModel {
   readonly model: string;
+  readonly modelKind?: TraceModelKind;
   isConfigured(): boolean;
   describe(context: AgentContext, request?: DescriptionRequest): Promise<string>;
   vote(context: AgentContext, allowedTargets: Player[]): Promise<{ targetId: string; reason: string }>;
   review(game: GameState): Promise<GameReview>;
   setTraceSink?(sink: TraceSink): void;
+  setOrigin?(origin: TraceOrigin): void;
+  setUsageRecorder?(recorder: ModelUsageRecorder): void;
 }
 
+/** DeepSeek 兼容客户端实现（也兼容任意 OpenAI 风格端点）。 */
 export class DeepSeekClient implements GameModel {
   readonly model: string;
+  readonly modelKind: TraceModelKind = 'real';
   private readonly apiKey: string;
   private readonly baseUrl: string;
   private readonly transport: ModelTransport;
   private traceSink?: TraceSink;
+  private usageRecorder?: ModelUsageRecorder;
+  private origin?: TraceOrigin;
 
-  constructor(options?: { apiKey?: string; baseUrl?: string; model?: string; traceSink?: TraceSink; transport?: ModelTransport }) {
+  /** 配置来源优先级：显式参数 > 环境变量 > 默认值。 */
+  constructor(options?: {
+    apiKey?: string;
+    baseUrl?: string;
+    model?: string;
+    traceSink?: TraceSink;
+    transport?: ModelTransport;
+    usageRecorder?: ModelUsageRecorder;
+    origin?: TraceOrigin;
+  }) {
     this.apiKey = options?.apiKey ?? process.env.DEEPSEEK_API_KEY ?? '';
     this.baseUrl = (options?.baseUrl ?? process.env.DEEPSEEK_BASE_URL ?? 'https://api.deepseek.com').replace(/\/$/, '');
     this.model = options?.model ?? process.env.DEEPSEEK_MODEL ?? 'deepseek-v4-flash';
     this.traceSink = options?.traceSink;
     this.transport = options?.transport ?? fetch;
+    this.usageRecorder = options?.usageRecorder;
+    this.origin = options?.origin;
   }
 
+  /** 注入 trace sink（模型调用与 prompt 溯源事件会写入这里）。 */
   setTraceSink(sink: TraceSink): void {
     this.traceSink = sink;
   }
 
+  /** 注入 token 用量回调（评测用）。 */
+  setUsageRecorder(recorder: ModelUsageRecorder): void {
+    this.usageRecorder = recorder;
+  }
+
+  setOrigin(origin: TraceOrigin): void {
+    this.origin = origin;
+  }
+
+  /** 是否配置了 API Key。 */
   isConfigured(): boolean {
     return this.apiKey.length > 0;
   }
 
+  /** 生成一句描述：构建 prompt → 溯源/调试记录 → 带重试的 JSON 调用 → 返回 description。 */
   async describe(context: AgentContext, request?: DescriptionRequest): Promise<string> {
     const prompt = buildDescribePrompt(context, request);
     this.traceProvenance(prompt);
-    recordPromptDebug(prompt);
+    recordPromptDebug(prompt, this.origin);
     return this.withRetry('describe', context, async (attempt) => {
       const result = descriptionSchema.parse(await this.chatJson('describe', prompt.messages, prompt.temperature, attempt));
       return result.description;
     });
   }
 
+  /** 生成投票：校验返回的 targetId 必须在候选列表内，否则按 schema 违例重试。 */
   async vote(context: AgentContext, allowedTargets: Player[]): Promise<{ targetId: string; reason: string }> {
     const prompt = buildVotePrompt(
       context,
       allowedTargets.map(({ id, name }) => ({ id, name })),
     );
     this.traceProvenance(prompt);
-    recordPromptDebug(prompt);
+    recordPromptDebug(prompt, this.origin);
     const targetIds = allowedTargets.map((player) => player.id);
     return this.withRetry('vote', context, async (attempt) => {
       const result = voteSchema.parse(await this.chatJson('vote', prompt.messages, prompt.temperature, attempt));
@@ -115,15 +179,17 @@ export class DeepSeekClient implements GameModel {
     });
   }
 
+  /** 生成终局复盘。 */
   async review(game: GameState): Promise<GameReview> {
     const prompt = buildReviewPrompt(game);
     this.traceProvenance(prompt);
-    recordPromptDebug(prompt);
+    recordPromptDebug(prompt, this.origin);
     return this.withRetry('review', game, async (attempt) =>
       reviewSchema.parse(await this.chatJson('review', prompt.messages, prompt.temperature, attempt)),
     );
   }
 
+  /** 记录 prompt 溯源事件（模板版本 + hash + 上下文规模）。 */
   private traceProvenance(prompt: RenderedPrompt): void {
     if (!this.traceSink) return;
     this.traceSink.record({
@@ -142,9 +208,17 @@ export class DeepSeekClient implements GameModel {
       sameRoundPublicDescriptionCount: prompt.metadata.sameRoundPublicDescriptionCount,
       strategyGuidance: prompt.metadata.strategyGuidance,
       repairViolationType: prompt.metadata.repairViolationType,
+      sourceType: this.origin?.sourceType,
+      entrypoint: this.origin?.entrypoint,
+      modelKind: this.origin?.modelKind ?? this.modelKind,
     });
   }
 
+  /**
+   * 带重试的统一调用骨架：最多尝试 2 次，
+   * 仅对诊断标记为可重试的错误重试（间隔 600ms），
+   * 每次尝试都会写 model_call trace（成功/失败）。
+   */
   private async withRetry<T>(
     task: ModelTask,
     context: AgentContext | GameState,
@@ -173,6 +247,7 @@ export class DeepSeekClient implements GameModel {
     throw lastError ?? new ModelError('AI 服务暂时不可用，已自动重试；请稍后再试');
   }
 
+  /** 发起 chat/completions 请求：30s 超时、JSON 模式、记录 usage、解析并校验 JSON。 */
   private async chatJson(task: ModelTask, messages: ChatMessage[], temperature: number, attempt: number): Promise<unknown> {
     if (!this.isConfigured()) {
       throw new ModelError('未配置模型密钥，请检查本地环境变量', undefined, {
@@ -200,9 +275,12 @@ export class DeepSeekClient implements GameModel {
         signal: controller.signal,
       });
       if (!response.ok) throw httpModelError(response.status, attempt);
+      // 读取 provider 返回的 token 用量（评测成本指标依赖）。
       const payload = (await response.json()) as {
         choices?: Array<{ message?: { content?: string } }>;
+        usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
       };
+      this.recordUsage(task, attempt, payload.usage);
       const content = payload.choices?.[0]?.message?.content;
       if (!content) {
         throw new ModelError('AI 返回了空内容', undefined, {
@@ -229,6 +307,29 @@ export class DeepSeekClient implements GameModel {
     }
   }
 
+  /** 把 provider usage 字段归一化后交给评测回调；字段缺失时按 0 处理。 */
+  private recordUsage(
+    task: ModelUsageEvent['task'],
+    providerAttempt: number,
+    usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | undefined,
+  ): void {
+    if (!usage || !this.usageRecorder) return;
+    const inputTokens = Number.isFinite(usage.prompt_tokens) ? (usage.prompt_tokens ?? 0) : 0;
+    const outputTokens = Number.isFinite(usage.completion_tokens) ? (usage.completion_tokens ?? 0) : 0;
+    const totalTokens = Number.isFinite(usage.total_tokens)
+      ? (usage.total_tokens ?? inputTokens + outputTokens)
+      : inputTokens + outputTokens;
+    this.usageRecorder({
+      task,
+      providerAttempt,
+      inputTokens,
+      outputTokens,
+      totalTokens,
+      source: 'provider',
+    });
+  }
+
+  /** 记录 model_call trace：context 可能是 AgentContext（describe/vote）或 GameState（review）。 */
   private traceModelCall(
     context: AgentContext | GameState,
     task: ModelTask,
@@ -239,6 +340,7 @@ export class DeepSeekClient implements GameModel {
     diagnostic?: ModelDiagnostic,
   ): void {
     if (!this.traceSink) return;
+    // 通过是否含 players 字段区分 review（传 GameState）与其余任务。
     const isGame = 'players' in context;
     this.traceSink.record({
       eventType: 'model_call',
@@ -260,18 +362,21 @@ export class DeepSeekClient implements GameModel {
   }
 }
 
+/** 把任意错误归一化为诊断信息（ModelError / ZodError / 传输错误）。 */
 export function normalizeModelDiagnostic(error: unknown, attempt: number): ModelDiagnostic {
   if (error instanceof ModelError && error.diagnostic) return { ...error.diagnostic, attempt };
   if (error instanceof z.ZodError) return { errorType: 'schema_validation', retryable: true, attempt };
   return classifyTransportError(error, attempt);
 }
 
+/** 传输层错误分类：超时/网络/未知。 */
 function classifyTransportError(error: unknown, attempt: number): ModelDiagnostic {
   if (isAbortError(error)) return { errorType: 'timeout', retryable: true, attempt };
   if (error instanceof TypeError) return { errorType: 'network', retryable: true, attempt };
   return { errorType: 'unknown', retryable: true, attempt };
 }
 
+/** HTTP 状态 → 错误类型与可重试性（429/5xx 可重试）。 */
 function httpModelError(status: number, attempt: number): ModelError {
   const errorType: ModelErrorType =
     status === 429 ? 'rate_limit' : status >= 500 ? 'provider_5xx' : 'http_non_retryable';
@@ -283,6 +388,7 @@ function httpModelError(status: number, attempt: number): ModelError {
   });
 }
 
+/** 生成面向用户的失败文案（任务 + 错误类型）。 */
 function messageForDiagnostic(task: ModelTask, diagnostic: ModelDiagnostic): string {
   const taskLabel = { describe: '描述', vote: '投票', review: '复盘' }[task];
   const labels: Record<ModelErrorType, string> = {
@@ -299,10 +405,12 @@ function messageForDiagnostic(task: ModelTask, diagnostic: ModelDiagnostic): str
   return `AI ${taskLabel}失败：${labels[diagnostic.errorType]}`;
 }
 
+/** 判断是否为 AbortController 超时中止。 */
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'AbortError';
 }
 
+/** 去掉模型可能包裹的 ```json ... ``` 代码围栏，再交给 JSON.parse。 */
 function stripCodeFence(content: string): string {
   return content
     .trim()
@@ -310,6 +418,7 @@ function stripCodeFence(content: string): string {
     .replace(/\s*```$/, '');
 }
 
+/** 四舍五入到 4 位小数。 */
 function round(value: number): number {
   return Math.round(value * 10_000) / 10_000;
 }
