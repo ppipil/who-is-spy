@@ -1,7 +1,14 @@
 import { performance } from 'node:perf_hooks';
 import { z } from 'zod';
-import { getAgentStrategy } from './agent-strategy.js';
 import type { DescriptionRequest } from './description-quality.js';
+import {
+  buildDescribePrompt,
+  buildReviewPrompt,
+  buildVotePrompt,
+  recordPromptDebug,
+  renderPromptHash,
+  type RenderedPrompt,
+} from './prompt.js';
 import type { AgentContext, GameReview, GameState, Player } from './types.js';
 import type { ModelDiagnostic, ModelErrorType, ModelTask, TraceSink } from './trace.js';
 
@@ -78,68 +85,25 @@ export class DeepSeekClient implements GameModel {
   }
 
   async describe(context: AgentContext, request?: DescriptionRequest): Promise<string> {
-    const strategy = getAgentStrategy(context.identity.strategyId);
-    const messages: ChatMessage[] = [
-      {
-        role: 'system',
-        content:
-          '你正在玩“谁是卧底”。只依据收到的私有身份、自己的词和公开信息行动。绝不说出词语本身，不虚构其他玩家信息。用自然、含蓄、像真人的中文描述，避免每轮重复角度。只输出 JSON。',
-      },
-      {
-        role: 'user',
-        content: JSON.stringify({
-          task: '为本轮给出一句公开描述。description 需为 2–60 个字符（约 28 个汉字以内），不能包含自己的词。',
-          strategy: {
-            id: strategy.id,
-            guidance: strategy.buildDescriptionGuidance({
-              role: context.identity.role,
-              round: context.game.round,
-              publicDescriptionCount: context.game.publicDescriptions.length,
-            }),
-          },
-          repair: request?.repair,
-          context,
-          output: { description: 'string', private_reasoning_summary: 'string' },
-        }),
-      },
-    ];
-
+    const prompt = buildDescribePrompt(context, request);
+    this.traceProvenance(prompt);
+    recordPromptDebug(prompt);
     return this.withRetry('describe', context, async (attempt) => {
-      const result = descriptionSchema.parse(await this.chatJson('describe', messages, 0.8, attempt));
+      const result = descriptionSchema.parse(await this.chatJson('describe', prompt.messages, prompt.temperature, attempt));
       return result.description;
     });
   }
 
   async vote(context: AgentContext, allowedTargets: Player[]): Promise<{ targetId: string; reason: string }> {
-    const strategy = getAgentStrategy(context.identity.strategyId);
+    const prompt = buildVotePrompt(
+      context,
+      allowedTargets.map(({ id, name }) => ({ id, name })),
+    );
+    this.traceProvenance(prompt);
+    recordPromptDebug(prompt);
     const targetIds = allowedTargets.map((player) => player.id);
-    const messages: ChatMessage[] = [
-      {
-        role: 'system',
-        content:
-          '你正在玩“谁是卧底”。只依据自己的私有身份、词语与公开描述投票。不得读取或猜测系统未提供的隐藏字段。必须投给存活的其他玩家，并给出简短公开理由。只输出 JSON。',
-      },
-      {
-        role: 'user',
-        content: JSON.stringify({
-          task: '选择最可疑的一名玩家。',
-          strategy: {
-            id: strategy.id,
-            guidance: strategy.buildVoteGuidance({
-              role: context.identity.role,
-              round: context.game.round,
-              publicDescriptionCount: context.game.publicDescriptions.length,
-            }),
-          },
-          context,
-          allowedTargets: allowedTargets.map(({ id, name }) => ({ id, name })),
-          output: { targetId: '必须来自 allowedTargets.id', reason: '不超过 36 个汉字' },
-        }),
-      },
-    ];
-
     return this.withRetry('vote', context, async (attempt) => {
-      const result = voteSchema.parse(await this.chatJson('vote', messages, 0.8, attempt));
+      const result = voteSchema.parse(await this.chatJson('vote', prompt.messages, prompt.temperature, attempt));
       if (!targetIds.includes(result.targetId)) {
         throw new ModelError('AI 返回了无效投票目标', undefined, {
           errorType: 'schema_validation',
@@ -152,33 +116,33 @@ export class DeepSeekClient implements GameModel {
   }
 
   async review(game: GameState): Promise<GameReview> {
-    const publicRecord = {
-      players: game.players.map(({ id, name, role, word, alive }) => ({ id, name, role, word, alive })),
-      descriptions: game.descriptions,
-      votes: game.votes,
-      events: game.events,
-      winner: game.winner,
-    };
-    const messages: ChatMessage[] = [
-      {
-        role: 'system',
-        content: '你是“谁是卧底”的专业赛后分析师。根据完整赛局生成精炼、具体、有洞察的中文复盘。只输出 JSON。',
-      },
-      {
-        role: 'user',
-        content: JSON.stringify({
-          task: '指出关键转折、描述策略和投票逻辑。playerInsights 覆盖每名玩家。',
-          record: publicRecord,
-          output: {
-            headline: 'string',
-            summary: 'string',
-            turningPoints: ['string'],
-            playerInsights: [{ playerId: 'string', insight: 'string' }],
-          },
-        }),
-      },
-    ];
-    return this.withRetry('review', game, async (attempt) => reviewSchema.parse(await this.chatJson('review', messages, 0.45, attempt)));
+    const prompt = buildReviewPrompt(game);
+    this.traceProvenance(prompt);
+    recordPromptDebug(prompt);
+    return this.withRetry('review', game, async (attempt) =>
+      reviewSchema.parse(await this.chatJson('review', prompt.messages, prompt.temperature, attempt)),
+    );
+  }
+
+  private traceProvenance(prompt: RenderedPrompt): void {
+    if (!this.traceSink) return;
+    this.traceSink.record({
+      eventType: 'prompt_provenance',
+      gameId: prompt.metadata.gameId,
+      round: prompt.metadata.round,
+      task: prompt.metadata.task,
+      agentId: prompt.metadata.agentId,
+      role: prompt.metadata.role,
+      strategyId: prompt.metadata.strategyId,
+      promptTemplateVersion: prompt.version,
+      promptHash: renderPromptHash(prompt.version, prompt.messages),
+      model: this.model,
+      temperature: prompt.temperature,
+      publicDescriptionCount: prompt.metadata.publicDescriptionCount,
+      sameRoundPublicDescriptionCount: prompt.metadata.sameRoundPublicDescriptionCount,
+      strategyGuidance: prompt.metadata.strategyGuidance,
+      repairViolationType: prompt.metadata.repairViolationType,
+    });
   }
 
   private async withRetry<T>(

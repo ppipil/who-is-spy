@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: who-is-spy-preview
+    runtime: node
+    repo: https://github.com/ppipil/who-is-spy
+    branch: preview/reliability-polish
+    plan: free
+    buildCommand: npm ci --registry=https://registry.npmjs.org --replace-registry-host=always && npm run build
+    startCommand: npm run start --workspace packages/server-node
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 22.22.0
+      - key: NODE_ENV
+        value: production
+      - key: GAME_MODEL
+        value: real
+      - key: DEEPSEEK_MODEL
+        value: deepseek-chat
+      - key: M5_TRACE_CONSOLE
+        value: "1"
+      - key: DEEPSEEK_API_KEY
+        sync: false

@@ -1939,3 +1939,25 @@ textarea:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
+
+.recovery-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(211, 108, 71, 0.35);
+  border-radius: 12px;
+  background: rgba(211, 108, 71, 0.08);
+}
+
+.recovery-box p {
+  margin: 0;
+  flex: 1;
+  font-size: 14px;
+  color: var(--ink-soft, #6b6257);
+}
+
+.recovery-box strong {
+  color: var(--ink, #26221c);
+}

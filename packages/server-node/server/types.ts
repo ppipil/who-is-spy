@@ -81,6 +81,11 @@ export interface PublicGameState {
   review: GameReview | null;
   human: { playerId: string; role: Role; word: string };
   model: string;
+  descriptionResume?: {
+    missingAgentId: string;
+    manualResumeIndex: number;
+    manualRetriesRemaining: number;
+  };
 }
 
 export interface PublicDescriptionProgressEvent {

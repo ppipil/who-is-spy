@@ -1,5 +1,23 @@
 import type { DescriptionPublishedProgressEvent, PhaseChangedProgressEvent, PublicGameState } from './types';
 
+export interface ApiDiagnostic {
+  errorType?: string;
+  httpStatus?: number | null;
+  retryable?: boolean;
+  attempt?: number;
+}
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly diagnostic?: ApiDiagnostic,
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     ...options,
@@ -8,9 +26,9 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
       ...options?.headers,
     },
   });
-  const payload = (await response.json()) as T & { error?: string };
+  const payload = (await response.json()) as T & { error?: string; diagnostic?: ApiDiagnostic };
   if (!response.ok) {
-    throw new Error(payload.error ?? '请求失败，请稍后重试');
+    throw new ApiError(payload.error ?? '请求失败，请稍后重试', response.status, payload.diagnostic);
   }
   return payload;
 }
@@ -38,6 +56,10 @@ export const api = {
     request<PublicGameState>(`/api/games/${id}/describe`, {
       method: 'POST',
       body: JSON.stringify({ text }),
+    }),
+  resumeDescription: (id: string) =>
+    request<PublicGameState>(`/api/games/${id}/description/resume`, {
+      method: 'POST',
     }),
   vote: (id: string, targetId: string) =>
     request<PublicGameState>(`/api/games/${id}/vote`, {

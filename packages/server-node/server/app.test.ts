@@ -108,7 +108,7 @@ describe('HTTP API', () => {
 
       await waitFor(() => model.descriptionContexts.length === 1);
       model.releaseNext();
-      const firstAiEvent = await readUntil(reader, '"playerId":"ai-1"');
+      const firstAiEvent = await readUntil(reader, '公开描述-');
       expect(firstAiEvent).toContain('event: description_published');
       expect(firstAiEvent).toContain('"playerName":"阿序"');
       expect(firstAiEvent).toContain('"completed":2');
