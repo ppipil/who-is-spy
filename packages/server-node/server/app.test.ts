@@ -2,8 +2,8 @@ import type { AddressInfo } from 'node:net';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { createApp } from './app.js';
-import { FakeGameModel } from './test-utils.js';
-import type { AgentContext } from './types.js';
+import { FakeGameModel } from './support/test-utils.js';
+import type { AgentContext } from './core/types.js';
 
 class PausedDescriptionModel extends FakeGameModel {
   private readonly resolvers: Array<() => void> = [];

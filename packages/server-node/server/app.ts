@@ -2,10 +2,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { z } from 'zod';
-import { DescriptionQualityError } from './description-quality.js';
-import { GameEngine, GameRuleError } from './game-engine.js';
-import { DeepSeekClient, ModelError, type GameModel } from './model.js';
-import { createTraceSinkFromEnv } from './trace.js';
+import { DescriptionQualityError } from './core/description-quality.js';
+import { GameEngine, GameRuleError } from './core/game-engine.js';
+import { DeepSeekClient, ModelError, type GameModel } from './core/model.js';
+import { createTraceSinkFromEnv } from './trace/trace.js';
 
 const descriptionInput = z.object({ text: z.string() });
 const voteInput = z.object({ targetId: z.string().min(1) });

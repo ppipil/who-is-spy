@@ -1,8 +1,8 @@
-import { FakeGameModel } from './test-utils.js';
-import type { DescriptionRequest } from './description-quality.js';
-import { ModelError, type GameModel } from './model.js';
-import type { AgentContext, GameReview, GameState, Player } from './types.js';
-import type { ModelDiagnostic, ModelErrorType, ModelTask, TraceSink } from './trace.js';
+import { FakeGameModel } from '../support/test-utils.js';
+import type { DescriptionRequest } from '../core/description-quality.js';
+import { ModelError, type GameModel } from '../core/model.js';
+import type { AgentContext, GameReview, GameState, Player } from '../core/types.js';
+import type { ModelDiagnostic, ModelErrorType, ModelTask, TraceSink } from '../trace/trace.js';
 
 export type FaultType = 'timeout' | 'invalid_json' | 'schema_validation' | 'rate_limit' | 'provider_5xx';
 

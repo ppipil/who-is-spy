@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { GameEngine } from './game-engine.js';
+import { GameEngine } from '../core/game-engine.js';
 import { FaultInjectingModel, scenarioFaults } from './fault-injection.js';
-import { InMemoryTraceSink, replayTrace, type ModelCallTraceEvent } from './trace.js';
+import { InMemoryTraceSink, replayTrace, type ModelCallTraceEvent } from '../trace/trace.js';
 
 describe('M5 fault injection and replay', () => {
   it('classifies timeout, retries, and keeps the game playable', async () => {

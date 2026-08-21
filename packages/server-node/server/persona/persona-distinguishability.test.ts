@@ -5,8 +5,8 @@ import {
   buildDescribePrompt,
   buildVotePrompt,
   renderPromptHash,
-} from './prompt.js';
-import type { AgentContext, AgentStrategyId } from './types.js';
+} from '../core/prompt.js';
+import type { AgentContext, AgentStrategyId } from '../core/types.js';
 
 const STRATEGY_IDS: AgentStrategyId[] = ['cautious', 'intuitive', 'analytical', 'contrarian'];
 const DISPLAY_NAMES = ['谨慎观察', '直觉敏锐', '逻辑派', '出其不意'];

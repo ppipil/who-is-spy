@@ -1,7 +1,7 @@
 import path from 'node:path';
-import { GameEngine } from './game-engine.js';
+import { GameEngine } from '../core/game-engine.js';
 import { FaultInjectingModel, scenarioFaults } from './fault-injection.js';
-import type { PublicGameState } from './types.js';
+import type { PublicGameState } from '../core/types.js';
 import {
   CompositeTraceSink,
   InMemoryTraceSink,
@@ -10,7 +10,7 @@ import {
   errorLabel,
   replayTrace,
   type ModelCallTraceEvent,
-} from './trace.js';
+} from '../trace/trace.js';
 
 interface Options {
   scenario: string;

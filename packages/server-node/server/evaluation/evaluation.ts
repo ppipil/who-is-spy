@@ -1,10 +1,10 @@
 import { performance } from 'node:perf_hooks';
-import { GameEngine } from './game-engine.js';
-import type { DescriptionQualityEvent } from './description-quality.js';
-import type { GameModel } from './model.js';
-import { DeepSeekClient } from './model.js';
-import { FakeGameModel } from './test-utils.js';
-import type { AgentContext, GameReview, GameState, Player, PublicGameState, Role } from './types.js';
+import { GameEngine } from '../core/game-engine.js';
+import type { DescriptionQualityEvent } from '../core/description-quality.js';
+import type { GameModel } from '../core/model.js';
+import { DeepSeekClient } from '../core/model.js';
+import { FakeGameModel } from '../support/test-utils.js';
+import type { AgentContext, GameReview, GameState, Player, PublicGameState, Role } from '../core/types.js';
 
 export type EvaluationModelKind = 'fake' | 'real';
 

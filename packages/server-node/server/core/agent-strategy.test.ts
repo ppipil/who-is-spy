@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildRoleObjective, listAgentStrategies } from './agent-strategy.js';
-import { FakeGameModel } from './test-utils.js';
+import { FakeGameModel } from '../support/test-utils.js';
 import type { AgentContext, AgentStrategyId, Player } from './types.js';
 
 const strategyIds: AgentStrategyId[] = ['cautious', 'intuitive', 'analytical', 'contrarian'];

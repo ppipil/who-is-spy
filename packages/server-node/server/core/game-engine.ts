@@ -20,7 +20,7 @@ import type {
   Role,
   Vote,
 } from './types.js';
-import type { TraceSink } from './trace.js';
+import type { TraceSink } from '../trace/trace.js';
 import { chooseWordPair } from './words.js';
 
 const AI_PROFILES = [

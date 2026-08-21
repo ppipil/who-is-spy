@@ -102,3 +102,9 @@ Case 3(卧底 · 第3轮 · 后手位,公开描述偏狐狸特征):
 | 出其不意 | HIGH | 但也不一定,有时候它们还挺粘人的。 | ai-1 | 阿序的描述过于抽象,与常见词语关联弱,疑似回避暴露。 |
 
 观察:四个 Persona 在描述的信息量、切入角度与投票关注点上都出现明显梯度;Case 2 中后手位在公开局面已很泛化时,四个人都给出了各自风格下的具体化方向(地下 / 赶时间场景 / 点对点连接 / 拥挤),没有继续堆“很常见、和生活有关”类空话;逻辑派与出其不意明显更直接。
+
+### Server 目录重组(分支 `preview/reliability-polish`)
+
+- 目的:`packages/server-node/server/` 顶层 31 个文件全部平铺,按依赖方向分组为 `core/`(游戏核心)、`evaluation/`、`fault/`、`persona/`、`trace/`、`support/`;`app.ts` / `index.ts` / `app.test.ts` 保留顶层。
+- 方法:`git mv` 移动 28 个文件(保留历史)+ 一次性 Node 脚本按文件新位置重写 82 处相对导入(保持 `.js` ESM 后缀约定),同步修正 `prompt.ts` 的 `traces/` 相对路径与 `package.json` 4 个 CLI 脚本路径(`eval` / `persona-probe` / `fault-demo` / `replay`)。
+- 验证:`npm run build`(web Vite + server-node `tsc --noEmit`)通过;`npm run test:node` 12 文件 / 48 测试通过;`npm run contract:node` 28 通过 / 0 失败。未改任何运行逻辑,仅目录与导入路径。

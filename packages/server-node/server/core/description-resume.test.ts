@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { GameEngine } from './game-engine.js';
 import { ModelError } from './model.js';
-import { InMemoryTraceSink } from './trace.js';
-import { FakeGameModel } from './test-utils.js';
+import { InMemoryTraceSink } from '../trace/trace.js';
+import { FakeGameModel } from '../support/test-utils.js';
 import type { AgentContext } from './types.js';
 
 class ResumeTestModel extends FakeGameModel {

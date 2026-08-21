@@ -223,7 +223,7 @@ function redactSecrets(value: unknown, secrets: string[]): void {
   }
 }
 
-const DEFAULT_DEBUG_PATH = path.resolve(fileURLToPath(new URL('../traces/prompt-debug.jsonl', import.meta.url)));
+const DEFAULT_DEBUG_PATH = path.resolve(fileURLToPath(new URL('../../traces/prompt-debug.jsonl', import.meta.url)));
 
 export function recordPromptDebug(prompt: RenderedPrompt): void {
   if (process.env.PROMPT_TRACE_DEBUG !== '1') return;

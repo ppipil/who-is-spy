@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { runEvaluation } from './evaluation.js';
-import { FakeGameModel } from './test-utils.js';
-import type { AgentContext, Player } from './types.js';
+import { FakeGameModel } from '../support/test-utils.js';
+import type { AgentContext, Player } from '../core/types.js';
 
 class InvalidVoteModel extends FakeGameModel {
   override async vote(

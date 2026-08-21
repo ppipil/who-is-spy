@@ -10,7 +10,7 @@ import {
   type RenderedPrompt,
 } from './prompt.js';
 import type { AgentContext, GameReview, GameState, Player } from './types.js';
-import type { ModelDiagnostic, ModelErrorType, ModelTask, TraceSink } from './trace.js';
+import type { ModelDiagnostic, ModelErrorType, ModelTask, TraceSink } from '../trace/trace.js';
 
 const descriptionSchema = z.object({
   description: z.string().trim().min(2).max(60),
