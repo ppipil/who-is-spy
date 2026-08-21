@@ -1,5 +1,13 @@
+/**
+ * Agent 策略（Persona）
+ *
+ * 把“角色目标（怎么赢）”与“persona 政策（怎么看/怎么说/怎么投）”分离：
+ * - buildRoleObjective：平民/卧底各自的目标，所有 persona 共用；
+ * - STRATEGIES：四种可扩展 persona，决定描述/投票的表达风格与质量门禁参数。
+ */
 import type { AgentStrategyId, Role } from './types.js';
 
+/** 策略决策输入（当前主要供评测/实验台使用）。 */
 export interface StrategyInput {
   role: Role;
   round: number;
@@ -7,11 +15,13 @@ export interface StrategyInput {
   sameRoundPublicDescriptions?: Array<{ playerId: string; text: string }>;
 }
 
+/** 质量门禁参数：每 persona 可配置描述最大尝试次数与重复阈值。 */
 export interface QualityPolicy {
   maxDescriptionAttempts: number;
   duplicateSimilarityThreshold: number;
 }
 
+/** 一个完整策略：id、展示名、persona 政策与质量门禁参数。 */
 export interface AgentStrategy {
   id: AgentStrategyId;
   displayName: string;
@@ -19,6 +29,7 @@ export interface AgentStrategy {
   qualityPolicy: QualityPolicy;
 }
 
+/** persona 政策：核心特质、描述/投票风格、口头禅与关键原则。 */
 export interface PersonaPolicy {
   core: string;
   describe: string;
@@ -27,7 +38,7 @@ export interface PersonaPolicy {
   keyPrinciple: string;
 }
 
-// Role Objective 决定“作为平民/卧底怎样赢”，与 Persona 无关，所有 Persona 共用。
+/** 角色目标：按阵营+阶段给出获胜策略，与 persona 无关、所有 persona 共用。 */
 export function buildRoleObjective(input: { role: Role; phase: 'describing' | 'voting' }): string {
   if (input.role === 'undercover') {
     return input.phase === 'describing'
@@ -39,7 +50,7 @@ export function buildRoleObjective(input: { role: Role; phase: 'describing' | 'v
     : '你是平民。你的目标：根据公开证据找出与多数特征最不兼容、最像在伪装的人；投票理由必须引用公开发言。';
 }
 
-// Persona Policy 决定“怎么看信息、选什么线索、怎么表达、投票更相信什么证据”，不包含身份分支。
+// Persona 表：决定表达风格与决策倾向，不包含身份分支（避免与角色目标重复）。
 const STRATEGIES: Record<AgentStrategyId, AgentStrategy> = {
   cautious: {
     id: 'cautious',
@@ -99,10 +110,12 @@ const STRATEGIES: Record<AgentStrategyId, AgentStrategy> = {
   },
 };
 
+/** 按 id 取策略（引擎构造上下文后调用）。 */
 export function getAgentStrategy(id: AgentStrategyId): AgentStrategy {
   return STRATEGIES[id];
 }
 
+/** 列出全部策略（评测/实验台枚举用）。 */
 export function listAgentStrategies(): AgentStrategy[] {
   return Object.values(STRATEGIES);
 }

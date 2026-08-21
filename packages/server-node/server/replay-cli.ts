@@ -1,3 +1,6 @@
+/**
+ * 回放 CLI：从 JSONL trace 文件重放指定对局的人类可读事件流。
+ */
 import path from 'node:path';
 import { readJsonlTrace, replayTrace } from './trace.js';
 
@@ -7,6 +10,7 @@ interface Options {
   groupVotes: boolean;
 }
 
+/** 入口：解析参数 → 读取 trace → 重放输出。 */
 function main(): void {
   const options = parseArguments(process.argv.slice(2));
   const events = readJsonlTrace(options.traceFile);

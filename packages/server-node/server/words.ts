@@ -1,3 +1,6 @@
+/**
+ * 内置词对：平民/卧底各拿一个相近词，词对从列表中随机选取。
+ */
 export const WORD_PAIRS = [
   ['拿铁', '卡布奇诺'],
   ['月亮', '星星'],
@@ -13,6 +16,7 @@ export const WORD_PAIRS = [
   ['滑雪', '滑冰'],
 ] as const;
 
+/** 随机选一组词对（注入随机源以便评测复现）。 */
 export function chooseWordPair(random = Math.random): readonly [string, string] {
   return WORD_PAIRS[Math.floor(random() * WORD_PAIRS.length)];
 }
