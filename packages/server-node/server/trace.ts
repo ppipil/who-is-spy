@@ -23,6 +23,30 @@ export interface ModelDiagnostic {
 }
 
 export type TraceOutcome = 'success' | 'failure' | 'fallback';
+export type TraceSourceType = 'USER_GAME' | 'ADMIN_PROBE' | 'EVAL_RUN' | 'FAULT_RUN' | 'CLI_DEMO' | 'TEST';
+export type TraceEntrypoint = 'web' | 'admin' | 'cli' | 'test';
+export type TraceModelKind = 'real' | 'fake' | 'none';
+export type TraceRunStatus = 'running' | 'completed' | 'failed';
+
+export interface TraceOrigin {
+  sourceType: TraceSourceType;
+  entrypoint: TraceEntrypoint;
+  modelKind: TraceModelKind;
+  runId?: string;
+}
+
+export interface TraceRunMetadata {
+  runId: string;
+  sourceType: TraceSourceType;
+  status: TraceRunStatus;
+  createdAt: string;
+  modelKind?: TraceModelKind;
+  scenario?: string;
+  gameId?: string;
+  targetAgent?: string;
+  faultType?: string;
+  entrypoint?: TraceEntrypoint;
+}
 
 export interface ModelCallTraceEvent {
   eventType: 'model_call';
@@ -42,6 +66,11 @@ export interface ModelCallTraceEvent {
   latencyMs: number;
   willRetry: boolean;
   outcome: TraceOutcome;
+  injectedFault?: { agentId: string; faultType: ModelErrorType; round: number; attempt: number };
+  sourceType?: TraceSourceType;
+  entrypoint?: TraceEntrypoint;
+  modelKind?: TraceModelKind;
+  runId?: string;
 }
 
 export interface PublicRuntimeTraceEvent {
@@ -56,6 +85,10 @@ export interface PublicRuntimeTraceEvent {
   agentId?: string;
   agentName?: string;
   outcome: TraceOutcome;
+  sourceType?: TraceSourceType;
+  entrypoint?: TraceEntrypoint;
+  modelKind?: TraceModelKind;
+  runId?: string;
 }
 
 export interface RecoveryActionTraceEvent {
@@ -72,6 +105,10 @@ export interface RecoveryActionTraceEvent {
   manualResumeIndex: number;
   manualRetriesRemaining: number;
   recoveryOutcome?: 'recovered' | 'exhausted';
+  sourceType?: TraceSourceType;
+  entrypoint?: TraceEntrypoint;
+  modelKind?: TraceModelKind;
+  runId?: string;
 }
 
 export interface PromptProvenanceTraceEvent {
@@ -92,18 +129,80 @@ export interface PromptProvenanceTraceEvent {
   sameRoundPublicDescriptionCount: number;
   strategyGuidance?: string;
   repairViolationType?: string;
+  sourceType?: TraceSourceType;
+  entrypoint?: TraceEntrypoint;
+  modelKind?: TraceModelKind;
+  runId?: string;
+}
+
+export interface QualityViolationTraceEvent {
+  eventType: 'quality_violation';
+  timestamp: string;
+  sequence: number;
+  gameId: string;
+  round: number;
+  phase: 'describing';
+  agentId: string;
+  strategyId: string;
+  attempt: number;
+  violationType: string;
+  similarity?: number;
+  willRetry: boolean;
+  sourceType?: TraceSourceType;
+  entrypoint?: TraceEntrypoint;
+  modelKind?: TraceModelKind;
+  runId?: string;
+}
+
+export interface VoteTraceEvent {
+  eventType: 'vote';
+  timestamp: string;
+  sequence: number;
+  gameId: string;
+  round: number;
+  ballot?: number;
+  agentId: string;
+  targetId: string;
+  reason: string;
+  sourceType?: TraceSourceType;
+  entrypoint?: TraceEntrypoint;
+  modelKind?: TraceModelKind;
+  runId?: string;
+}
+
+export interface TraceRunLifecycleEvent {
+  eventType: 'trace_run';
+  timestamp: string;
+  sequence: number;
+  gameId: string;
+  round: number;
+  runId: string;
+  sourceType: TraceSourceType;
+  status: TraceRunStatus;
+  createdAt: string;
+  modelKind?: TraceModelKind;
+  scenario?: string;
+  targetAgent?: string;
+  faultType?: string;
+  entrypoint?: TraceEntrypoint;
 }
 
 export type RuntimeTraceEvent =
   | ModelCallTraceEvent
   | PublicRuntimeTraceEvent
   | RecoveryActionTraceEvent
-  | PromptProvenanceTraceEvent;
+  | PromptProvenanceTraceEvent
+  | QualityViolationTraceEvent
+  | VoteTraceEvent
+  | TraceRunLifecycleEvent;
 export type RuntimeTraceDraft =
   | Omit<ModelCallTraceEvent, 'timestamp' | 'sequence'>
   | Omit<PublicRuntimeTraceEvent, 'timestamp' | 'sequence'>
   | Omit<RecoveryActionTraceEvent, 'timestamp' | 'sequence'>
-  | Omit<PromptProvenanceTraceEvent, 'timestamp' | 'sequence'>;
+  | Omit<PromptProvenanceTraceEvent, 'timestamp' | 'sequence'>
+  | Omit<QualityViolationTraceEvent, 'timestamp' | 'sequence'>
+  | Omit<VoteTraceEvent, 'timestamp' | 'sequence'>
+  | Omit<TraceRunLifecycleEvent, 'timestamp' | 'sequence'>;
 
 export interface TraceSink {
   record(event: RuntimeTraceDraft): void;
@@ -148,6 +247,64 @@ export class CompositeTraceSink implements TraceSink {
   }
 }
 
+export function stampTraceOrigin(sink: TraceSink, origin: TraceOrigin): TraceSink {
+  return {
+    record(event) {
+      sink.record({
+        ...event,
+        sourceType: origin.sourceType,
+        entrypoint: origin.entrypoint,
+        modelKind: origin.modelKind,
+        ...(origin.runId ? { runId: origin.runId } : {}),
+      } as RuntimeTraceDraft);
+    },
+  };
+}
+
+export function recordTraceRun(sink: TraceSink | undefined, metadata: TraceRunMetadata): void {
+  sink?.record({
+    eventType: 'trace_run',
+    gameId: metadata.gameId ?? metadata.runId,
+    round: 0,
+    runId: metadata.runId,
+    sourceType: metadata.sourceType,
+    status: metadata.status,
+    createdAt: metadata.createdAt,
+    ...(metadata.modelKind ? { modelKind: metadata.modelKind } : {}),
+    ...(metadata.scenario ? { scenario: metadata.scenario } : {}),
+    ...(metadata.targetAgent ? { targetAgent: metadata.targetAgent } : {}),
+    ...(metadata.faultType ? { faultType: metadata.faultType } : {}),
+    ...(metadata.entrypoint ? { entrypoint: metadata.entrypoint } : {}),
+  });
+}
+
+export function listTraceRuns(events: readonly RuntimeTraceEvent[]): TraceRunMetadata[] {
+  const byRunId = new Map<string, TraceRunMetadata>();
+  for (const event of events) {
+    if (event.eventType !== 'trace_run') continue;
+    byRunId.set(event.runId, {
+      runId: event.runId,
+      sourceType: event.sourceType,
+      status: event.status,
+      createdAt: event.createdAt,
+      gameId: event.gameId,
+      ...(event.modelKind ? { modelKind: event.modelKind } : {}),
+      ...(event.scenario ? { scenario: event.scenario } : {}),
+      ...(event.targetAgent ? { targetAgent: event.targetAgent } : {}),
+      ...(event.faultType ? { faultType: event.faultType } : {}),
+      ...(event.entrypoint ? { entrypoint: event.entrypoint } : {}),
+    });
+  }
+  return [...byRunId.values()].sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+}
+
+export function filterTraceEventsByRun(events: readonly RuntimeTraceEvent[], runId: string): RuntimeTraceEvent[] {
+  return events.filter((event) => event.runId === runId);
+}
+
+export function filterTraceEventsByCase(events: readonly RuntimeTraceEvent[], runId: string, gameId: string): RuntimeTraceEvent[] {
+  return events.filter((event) => event.gameId === gameId && event.runId === runId);
+}
 export function createTraceSinkFromEnv(): TraceSink | undefined {
   const sinks: TraceSink[] = [];
   if (process.env.M5_TRACE_CONSOLE === '1') sinks.push(new ConsoleTraceSink());
@@ -163,7 +320,16 @@ export async function measureLatency<T>(operation: () => Promise<T>): Promise<{ 
 }
 
 export function formatTraceLine(event: RuntimeTraceEvent): string {
-  if (event.eventType === 'public_event') {
+  if (event.eventType === 'trace_run') {
+    const label = event.status === 'completed' ? '完成' : event.status === 'failed' ? '失败' : '运行中';
+    return `#${event.sequence} Run ${event.runId} · ${event.sourceType} ${label}`;
+  }
+  if (event.eventType === 'vote') {
+    return `#${event.sequence} 第${event.round}轮 投票阶段 · 投票 ${displayAgent(event.agentId)} → ${displayAgent(event.targetId)}：${event.reason}`;
+  }
+  if (event.eventType === 'quality_violation') {
+    return `#${event.sequence} 第${event.round}轮 描述阶段 · 质量门禁 ${displayAgent(event.agentId)} ${event.violationType}${event.willRetry ? ' → 修复重试' : ' → 中止'}`;
+  }  if (event.eventType === 'public_event') {
     return `#${event.sequence} 第${event.round}轮 ${phaseLabel(event.phase)} · 公开事件 ${publicEventLabel(event.publicEventType)}`;
   }
   if (event.eventType === 'recovery_action') {
@@ -176,8 +342,9 @@ export function formatTraceLine(event: RuntimeTraceEvent): string {
   const icon = event.outcome === 'success' ? '✓' : event.outcome === 'fallback' ? '↳' : '✗';
   const actor = displayAgent(event.agentId, event.agentName);
   const error = event.errorType ? ` ${errorLabel(event.errorType)} errorType=${event.errorType}${event.httpStatus ? ` HTTP=${event.httpStatus}` : ''}` : '';
+  const injected = event.injectedFault ? ' [INJECTED FAULT]' : '';
   const retry = event.willRetry ? ' → 自动重试' : '';
-  return `#${event.sequence} 第${event.round}轮 ${phaseLabel(event.phase)} · ${icon} ${actor} ${event.task} #${event.attempt}${error} ${event.latencyMs}ms${retry}`;
+  return `#${event.sequence} 第${event.round}轮 ${phaseLabel(event.phase)} · ${icon} ${actor} ${event.task} #${event.attempt}${error}${injected} ${event.latencyMs}ms${retry}`;
 }
 
 export function replayTrace(
@@ -229,6 +396,7 @@ function formatReplayEvent(event: RuntimeTraceEvent): string[] {
     ];
   }
   if (event.eventType === 'prompt_provenance') return [];
+  if (event.eventType === 'quality_violation' || event.eventType === 'trace_run' || event.eventType === 'vote') return [];
   if (event.outcome === 'success') {
     if (event.task === 'vote' && !hasNearbyFailure(event)) return [];
     const suffix = event.task === 'vote' ? '成功（私有候选，等待整批结算）' : '成功';
@@ -272,6 +440,7 @@ function formatGroupedVoteReplay(events: RuntimeTraceEvent[]): string[] {
       continue;
     }
     if (event.eventType === 'prompt_provenance') continue;
+    if (event.eventType !== 'model_call') continue;
     if (event.task === 'vote' && voteBatch === 0) {
       voteBatch += 1;
       lines.push('【第一次 ballot batch：私有预生成】');

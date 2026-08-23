@@ -17,12 +17,15 @@ import {
   Vote,
   X,
 } from 'lucide-react';
+import { AdminConsole } from './admin/AdminConsole';
 import { api, ApiError } from './api';
 import type { DescriptionPublishedProgressEvent, PhaseChangedProgressEvent, PublicGameState, PublicPlayer, Role } from './types';
 
 type Screen = 'home' | 'reveal' | 'game';
 
 export function App() {
+  if (window.location.pathname.startsWith('/admin')) return <AdminConsole />;
+
   const [screen, setScreen] = useState<Screen>('home');
   const [game, setGame] = useState<PublicGameState | null>(null);
   const [description, setDescription] = useState('');

@@ -17,6 +17,27 @@ export interface PromptMessage {
   content: string;
 }
 
+export interface PromptDebugRecord {
+  timestamp: string;
+  gameId: string;
+  round: number;
+  task: PromptTask;
+  agentId: string;
+  role: string | null;
+  strategyId: string | null;
+  promptTemplateVersion: string;
+  promptHash: string;
+  publicDescriptionCount: number;
+  sameRoundPublicDescriptionCount: number;
+  messages: PromptMessage[];
+  runId?: string;
+}
+
+let promptDebugCollector: ((record: PromptDebugRecord) => void) | undefined;
+
+export function setPromptDebugCollector(collector: ((record: PromptDebugRecord) => void) | undefined): void {
+  promptDebugCollector = collector;
+}
 export interface PromptMetadata {
   gameId: string;
   round: number;
@@ -28,6 +49,7 @@ export interface PromptMetadata {
   sameRoundPublicDescriptionCount: number;
   strategyGuidance?: string;
   repairViolationType?: string;
+  runId?: string;
 }
 
 export interface RenderedPrompt {
@@ -226,27 +248,26 @@ function redactSecrets(value: unknown, secrets: string[]): void {
 const DEFAULT_DEBUG_PATH = path.resolve(fileURLToPath(new URL('../traces/prompt-debug.jsonl', import.meta.url)));
 
 export function recordPromptDebug(prompt: RenderedPrompt): void {
+  const record: PromptDebugRecord = {
+    timestamp: new Date().toISOString(),
+    gameId: prompt.metadata.gameId,
+    round: prompt.metadata.round,
+    task: prompt.metadata.task,
+    agentId: prompt.metadata.agentId,
+    role: prompt.metadata.role ?? null,
+    strategyId: prompt.metadata.strategyId ?? null,
+    promptTemplateVersion: prompt.version,
+    promptHash: renderPromptHash(prompt.version, prompt.messages),
+    publicDescriptionCount: prompt.metadata.publicDescriptionCount,
+    sameRoundPublicDescriptionCount: prompt.metadata.sameRoundPublicDescriptionCount,
+    messages: sanitizePromptForDebug(prompt),
+    ...(prompt.metadata.runId ? { runId: prompt.metadata.runId } : {}),
+  };
+  promptDebugCollector?.(record);
   if (process.env.PROMPT_TRACE_DEBUG !== '1') return;
   const filePath = process.env.PROMPT_TRACE_JSONL
     ? path.resolve(process.env.PROMPT_TRACE_JSONL)
     : DEFAULT_DEBUG_PATH;
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.appendFileSync(
-    filePath,
-    `${JSON.stringify({
-      timestamp: new Date().toISOString(),
-      gameId: prompt.metadata.gameId,
-      round: prompt.metadata.round,
-      task: prompt.metadata.task,
-      agentId: prompt.metadata.agentId,
-      role: prompt.metadata.role ?? null,
-      strategyId: prompt.metadata.strategyId ?? null,
-      promptTemplateVersion: prompt.version,
-      promptHash: renderPromptHash(prompt.version, prompt.messages),
-      publicDescriptionCount: prompt.metadata.publicDescriptionCount,
-      sameRoundPublicDescriptionCount: prompt.metadata.sameRoundPublicDescriptionCount,
-      messages: sanitizePromptForDebug(prompt),
-    })}\n`,
-    'utf8',
-  );
+  fs.appendFileSync(filePath, `${JSON.stringify(record)}\n`, 'utf8');
 }

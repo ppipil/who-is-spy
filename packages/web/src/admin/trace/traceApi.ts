@@ -1,0 +1,23 @@
+import type { AdminStatus, PromptTraceRecord, RuntimeEvent, TraceFilters } from './traceTypes';
+
+async function adminRequest<T>(path: string): Promise<T> {
+  const response = await fetch(path, { headers: { 'Content-Type': 'application/json' } });
+  const payload = (await response.json()) as T & { error?: string };
+  if (!response.ok) throw new Error(payload.error ?? 'Admin request failed');
+  return payload;
+}
+
+function queryString(params: object): string {
+  const entries = Object.entries(params as Record<string, string | undefined>).filter(
+    (entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].trim() !== '',
+  );
+  return entries.length === 0 ? '' : `?${new URLSearchParams(entries).toString()}`;
+}
+
+export const traceApi = {
+  status: () => adminRequest<AdminStatus>('/api/admin/status'),
+  traces: (filters: TraceFilters) =>
+    adminRequest<{ count: number; events: RuntimeEvent[] }>(`/api/admin/traces${queryString(filters)}`),
+  promptTraces: (filters: Pick<TraceFilters, 'gameId' | 'runId' | 'round' | 'task'> & { agentId: string }) =>
+    adminRequest<{ count: number; records: PromptTraceRecord[] }>(`/api/admin/prompt-traces${queryString(filters)}`),
+};

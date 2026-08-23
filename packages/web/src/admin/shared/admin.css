@@ -1,0 +1,59 @@
+.admin-shell {
+  min-height: 100vh;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.admin-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px clamp(18px, 3vw, 34px);
+  border-bottom: 1px solid rgba(33, 30, 25, 0.12);
+  background: rgba(238, 232, 220, 0.92);
+}
+
+.admin-brand {
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-nav a,
+.admin-icon-button,
+.trace-run-list button,
+.timeline-node {
+  color: inherit;
+  cursor: pointer;
+}
+
+.admin-nav a {
+  text-decoration: none;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.admin-icon-button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid rgba(33, 30, 25, 0.14);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.admin-error,
+.admin-empty {
+  color: #8e3825;
+  font-size: 13px;
+}
+
+.spin {
+  animation: spin 900ms linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

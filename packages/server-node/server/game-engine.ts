@@ -20,7 +20,7 @@ import type {
   Role,
   Vote,
 } from './types.js';
-import type { TraceSink } from './trace.js';
+import { recordTraceRun, type TraceSink } from './trace.js';
 import { chooseWordPair } from './words.js';
 
 const AI_PROFILES = [
@@ -114,6 +114,14 @@ export class GameEngine {
       createdAt: Date.now(),
     };
     this.games.set(id, game);
+    recordTraceRun(this.traceSink, {
+      runId: id,
+      gameId: id,
+      sourceType: 'USER_GAME',
+      entrypoint: 'web',
+      status: 'running',
+      createdAt: new Date(game.createdAt).toISOString(),
+    });
     return this.toPublic(game);
   }
 
@@ -325,7 +333,7 @@ export class GameEngine {
           break;
         }
         const willRetry = attempt < strategy.qualityPolicy.maxDescriptionAttempts;
-        this.onQualityViolation({
+        const qualityEvent = {
           gameId: game.id,
           round: game.round,
           agentId: agent.id,
@@ -334,6 +342,12 @@ export class GameEngine {
           violationType: violation.type,
           ...(violation.similarity === undefined ? {} : { similarity: violation.similarity }),
           willRetry,
+        };
+        this.onQualityViolation(qualityEvent);
+        this.traceSink?.record({
+          eventType: 'quality_violation',
+          phase: 'describing',
+          ...qualityEvent,
         });
       }
       if (acceptedText === undefined) {
@@ -369,6 +383,7 @@ export class GameEngine {
       phase: 'describing',
       ballot: game.ballot,
       recoveryAction: 'description_resume',
+      runId: game.id,
       agentId,
       agentName: game.players.find((player) => player.id === agentId)?.name,
       manualResumeIndex: state.manualResumeIndex,
@@ -492,6 +507,7 @@ export class GameEngine {
   }
 
   private async resolveBallot(game: GameState, votes: Vote[]): Promise<void> {
+    this.recordVoteTrace(game, votes);
     const counts = new Map<string, number>();
     for (const vote of votes) counts.set(vote.targetId, (counts.get(vote.targetId) ?? 0) + 1);
     const maxVotes = Math.max(...counts.values());
@@ -530,6 +546,14 @@ export class GameEngine {
       game.winner = winner;
       game.phase = 'finished';
       game.review = await this.createReview(game);
+      recordTraceRun(this.traceSink, {
+        runId: game.id,
+        gameId: game.id,
+        sourceType: 'USER_GAME',
+        entrypoint: 'web',
+        status: 'completed',
+        createdAt: new Date().toISOString(),
+      });
       return;
     }
 
@@ -545,6 +569,21 @@ export class GameEngine {
     this.tracePublicEvent(game, 'system');
   }
 
+  private recordVoteTrace(game: GameState, votes: Vote[]): void {
+    const secrets = [...new Set(game.players.map((player) => player.word))];
+    for (const vote of votes) {
+      this.traceSink?.record({
+        eventType: 'vote',
+        gameId: game.id,
+        round: vote.round,
+        ballot: vote.ballot,
+        agentId: vote.voterId,
+        targetId: vote.targetId,
+        reason: redactSecretWords(vote.reason, secrets),
+        runId: game.id,
+      });
+    }
+  }
   private checkWinner(game: GameState): Role | null {
     const alive = game.players.filter((player) => player.alive);
     const undercoverAlive = alive.filter((player) => player.role === 'undercover').length;
@@ -564,6 +603,7 @@ export class GameEngine {
         phase: game.phase,
         ballot: game.ballot,
         task: 'review',
+        runId: game.id,
         agentId: 'review',
         agentName: '复盘',
         attempt: 1,
@@ -659,6 +699,7 @@ export class GameEngine {
       phase: game.phase,
       ballot: game.ballot,
       publicEventType,
+      runId: game.id,
       agentId,
       agentName: player?.name,
       outcome: 'success',
@@ -672,4 +713,8 @@ export class GameEngine {
 
 function normalizeText(text: string): string {
   return text.trim().replace(/\s+/g, ' ');
+}
+
+export function redactSecretWords(text: string, secrets: readonly string[]): string {
+  return [...new Set(secrets)].reduce((value, secret) => secret.length > 0 ? value.split(secret).join('[SECRET]') : value, text);
 }
