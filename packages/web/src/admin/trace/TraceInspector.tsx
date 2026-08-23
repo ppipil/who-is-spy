@@ -28,18 +28,25 @@ function EventSection({ event }: { event: Record<string, unknown> }) {
     <section>
       <h3>Event</h3>
       <dl>
-        <Row label="gameId" value={String(event.gameId ?? '-')} />
-        <Row label="runId" value={String(event.runId ?? event.gameId ?? '-')} />
-        <Row label="round" value={String(event.round ?? '-')} />
-        <Row label="sequence" value={String(event.sequence ?? '-')} />
+        <Row label="gameId" value={field(event.gameId)} />
+        <Row label="runId" value={field(event.runId ?? event.gameId)} />
+        <Row label="round" value={field(event.round)} />
+        <Row label="sequence" value={field(event.sequence)} />
+        <Row label="agent" value={field(event.agentName ?? event.agentId)} />
+        <Row label="task" value={field(event.task)} />
+        <Row label="attempt" value={field(event.attempt)} />
+        <Row label="outcome" value={field(event.outcome)} />
+        <Row label="errorType" value={field(event.errorType)} />
+        <Row label="retry" value={retryLabel(event)} />
+        <Row label="latency" value={latencyLabel(event.latencyMs)} />
+        <Row label="recovery" value={recoveryLabel(event)} />
       </dl>
       {typeof event.reason === 'string' && <TextBlock title="Vote Reason" value={event.reason} />}
       {typeof event.text === 'string' && <TextBlock title="Output" value={event.text} />}
-      {typeof event.errorType === 'string' && <TextBlock title="Error" value={event.errorType} />}
+      {typeof event.errorType === 'string' && <TextBlock title="Failure Reason" value={failureSummary(event)} />}
     </section>
   );
 }
-
 function PromptSection({ node }: { node: TimelineNode }) {
   const user = node.prompt?.messages.find((message) => message.role === 'user');
   const system = node.prompt?.messages.find((message) => message.role === 'system');
@@ -58,6 +65,37 @@ function PromptSection({ node }: { node: TimelineNode }) {
   );
 }
 
+function field(value: unknown): string {
+  if (value === undefined || value === null || value === '') return '—';
+  return String(value);
+}
+
+function retryLabel(event: Record<string, unknown>): string {
+  if (event.willRetry === true) return 'scheduled';
+  if (event.willRetry === false) return 'no';
+  return '—';
+}
+
+function latencyLabel(value: unknown): string {
+  const ms = Number(value);
+  if (!Number.isFinite(ms) || ms <= 0) return '—';
+  return ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${Math.round(ms)}ms`;
+}
+
+function recoveryLabel(event: Record<string, unknown>): string {
+  if (typeof event.recoveryOutcome === 'string') return event.recoveryOutcome;
+  if (event.eventType === 'recovery_action') return 'waiting';
+  return '—';
+}
+
+function failureSummary(event: Record<string, unknown>): string {
+  const task = field(event.task);
+  const agent = field(event.agentName ?? event.agentId);
+  const attempt = field(event.attempt);
+  const error = field(event.errorType);
+  const retry = retryLabel(event);
+  return `${agent} ${task} attempt ${attempt} failed with ${error}. Retry: ${retry}.`;
+}
 function TextBlock({ title, value }: { title: string; value: string }) {
   return (
     <details className="trace-text-block" open={title !== 'System'}>
@@ -71,7 +109,7 @@ function Row({ label, value }: { label: string; value: string }) {
   return (
     <>
       <dt>{label}</dt>
-      <dd>{value || '-'}</dd>
+      <dd>{value || '—'}</dd>
     </>
   );
 }

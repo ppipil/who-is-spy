@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { GameEngine } from './game-engine.js';
-import { FakeGameModel } from './test-utils.js';
+import { FakeGameModel } from '../support/test-utils.js';
 import {
   DESCRIBE_PROMPT_VERSION,
   REVIEW_PROMPT_VERSION,

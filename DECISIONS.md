@@ -102,3 +102,20 @@ Case 3(卧底 · 第3轮 · 后手位,公开描述偏狐狸特征):
 | 出其不意 | HIGH | 但也不一定,有时候它们还挺粘人的。 | ai-1 | 阿序的描述过于抽象,与常见词语关联弱,疑似回避暴露。 |
 
 观察:四个 Persona 在描述的信息量、切入角度与投票关注点上都出现明显梯度;Case 2 中后手位在公开局面已很泛化时,四个人都给出了各自风格下的具体化方向(地下 / 赶时间场景 / 点对点连接 / 拥挤),没有继续堆“很常见、和生活有关”类空话;逻辑派与出其不意明显更直接。
+
+### Server 目录重组(分支 `preview/reliability-polish`)
+
+- 目的:`packages/server-node/server/` 顶层 31 个文件全部平铺,按依赖方向分组为 `core/`(游戏核心)、`evaluation/`、`fault/`、`persona/`、`trace/`、`support/`;`app.ts` / `index.ts` / `app.test.ts` 保留顶层。
+- 方法:`git mv` 移动 28 个文件(保留历史)+ 一次性 Node 脚本按文件新位置重写 82 处相对导入(保持 `.js` ESM 后缀约定),同步修正 `prompt.ts` 的 `traces/` 相对路径与 `package.json` 4 个 CLI 脚本路径(`eval` / `persona-probe` / `fault-demo` / `replay`)。
+- 验证:`npm run build`(web Vite + server-node `tsc --noEmit`)通过;`npm run test:node` 12 文件 / 48 测试通过;`npm run contract:node` 28 通过 / 0 失败。未改任何运行逻辑,仅目录与导入路径。
+
+### Admin Lite 采纳 Server 目录重组(分支 `feat/admin-lite`)
+
+- 目的:在 Trace Lite 基础上吸收 `preview/reliability-polish` 的 server 文件编排,避免继续把核心、trace、evaluation、fault、persona、support 文件平铺在 `server/` 根目录。
+- 方法:合入 `origin/preview/reliability-polish` 的目录重组;保留 Trace Lite 的 run lifecycle / vote / prompt debug / runtime trace 接线;新增 `server/admin/trace-routes.ts`,让 `app.ts` 只挂载 Admin API router。
+- 验证:`packages/server-node` 下 `npm run build` 通过;`packages/server-node` 下 `npm test` 为 14 文件 / 52 测试通过;仓库根目录 `npm run contract:node` 为 28 通过 / 0 失败;`packages/web` 下 `npm run build` 通过。未运行真实 DeepSeek。
+### Admin Trace 本地持久化(分支 `feat/admin-lite`)
+
+- 目的:解决刷新 / 后端 watch reload 后 Admin Trace 只存在内存导致记录消失的问题。
+- 方法:新增 Admin runtime JSONL store,默认写入并回读 `packages/server-node/traces/admin-runtime.jsonl`;`ADMIN_TRACE_JSONL` 可覆盖路径,设置为 `0` / `off` / `memory` 时退回纯内存。Admin API 继续从统一 `runtimeTrace.events` 读取,避免文件与内存重复显示。
+- 验证:`packages/server-node` 下 `npm run build` 通过;`npx vitest run server/admin-lite.test.ts server/trace/trace-lite.test.ts` 为 2 文件 / 5 测试通过;`packages/server-node` 下 `npm test` 为 14 文件 / 53 测试通过;仓库根目录 `npm run contract:node` 为 28 通过 / 0 失败;`packages/web` 下 `npm run build` 通过。未运行真实 DeepSeek。

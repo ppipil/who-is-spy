@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { createApp } from './app.js';
-import { DeepSeekClient, type GameModel } from './model.js';
-import { FakeGameModel } from './test-utils.js';
+import { DeepSeekClient, type GameModel } from './core/model.js';
+import { FakeGameModel } from './support/test-utils.js';
 
 // GAME_MODEL 选择运行时模型来源:
 //   real(默认)  真实 DeepSeek / OpenAI-compatible 调用,需要 DEEPSEEK_API_KEY

@@ -1,9 +1,9 @@
 import 'dotenv/config';
-import { listAgentStrategies } from './agent-strategy.js';
-import { DeepSeekClient } from './model.js';
+import { listAgentStrategies } from '../core/agent-strategy.js';
+import { DeepSeekClient } from '../core/model.js';
 import { flagLowInformationClue } from './persona-diagnostics.js';
-import { buildDescribePrompt, buildVotePrompt, renderPromptHash } from './prompt.js';
-import type { AgentContext, AgentStrategyId, Player } from './types.js';
+import { buildDescribePrompt, buildVotePrompt, renderPromptHash } from '../core/prompt.js';
+import type { AgentContext, AgentStrategyId, Player } from '../core/types.js';
 
 const ALIVE_PLAYERS = [
   { id: 'human', name: '你' },

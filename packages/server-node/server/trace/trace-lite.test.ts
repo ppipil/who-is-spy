@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { GameEngine, redactSecretWords } from './game-engine.js';
-import { FakeGameModel } from './test-utils.js';
+import { GameEngine, redactSecretWords } from '../core/game-engine.js';
+import { FakeGameModel } from '../support/test-utils.js';
 import { filterTraceEventsByCase, filterTraceEventsByRun, InMemoryTraceSink, listTraceRuns } from './trace.js';
 
 describe('Trace Lite observability', () => {

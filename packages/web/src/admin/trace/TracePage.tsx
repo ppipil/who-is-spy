@@ -81,3 +81,12 @@ export function TracePage() {
     </div>
   );
 }
+
+function defaultExpandedIds(nodes: TimelineNode[]): Set<string> {
+  const ids = new Set<string>();
+  for (const node of nodes) {
+    ids.add(node.id);
+    for (const child of node.children) ids.add(child.id);
+  }
+  return ids;
+}

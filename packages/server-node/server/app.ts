@@ -2,18 +2,19 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { z } from 'zod';
-import { DescriptionQualityError } from './description-quality.js';
-import { GameEngine, GameRuleError } from './game-engine.js';
-import { DeepSeekClient, ModelError, type GameModel } from './model.js';
-import { setPromptDebugCollector, type PromptDebugRecord } from './prompt.js';
-import { CompositeTraceSink, InMemoryTraceSink, createTraceSinkFromEnv, listTraceRuns, stampTraceOrigin } from './trace.js';
+import { createAdminTraceRouter } from './admin/trace-routes.js';
+import { DescriptionQualityError } from './core/description-quality.js';
+import { GameEngine, GameRuleError } from './core/game-engine.js';
+import { DeepSeekClient, ModelError, type GameModel } from './core/model.js';
+import { setPromptDebugCollector, type PromptDebugRecord } from './core/prompt.js';
+import { CompositeTraceSink, InMemoryTraceSink, createAdminRuntimeTraceSink, createTraceSinkFromEnv, stampTraceOrigin } from './trace/trace.js';
 
 const descriptionInput = z.object({ text: z.string() });
 const voteInput = z.object({ targetId: z.string().min(1) });
 
 export function createApp(model: GameModel = new DeepSeekClient()) {
   const app = express();
-  const runtimeTrace = new InMemoryTraceSink();
+  const runtimeTrace = process.env.ENABLE_ADMIN_CONSOLE === '1' ? createAdminRuntimeTraceSink() : new InMemoryTraceSink();
   const promptTraceRecords: PromptDebugRecord[] = [];
   const envTrace = createTraceSinkFromEnv();
   const traceSink = stampTraceOrigin(
@@ -112,40 +113,7 @@ export function createApp(model: GameModel = new DeepSeekClient()) {
   });
 
   if (process.env.ENABLE_ADMIN_CONSOLE === '1') {
-    app.get('/api/admin/status', (_request, response) => {
-      response.json({
-        model: model.model,
-        configured: model.isConfigured(),
-        runtimeTrace: 'ON',
-        activeGames: listTraceRuns(runtimeTrace.events).filter((run) => run.status === 'running').length,
-        adminEnabled: true,
-      });
-    });
-
-    app.get('/api/admin/traces', (request, response) => {
-      let events = [...runtimeTrace.events];
-      const { gameId, round, agent, task, errorType, runId } = request.query;
-      if (typeof gameId === 'string' && gameId) events = events.filter((event) => event.gameId === gameId);
-      if (typeof runId === 'string' && runId) events = events.filter((event) => event.runId === runId || event.gameId === runId);
-      if (typeof round === 'string' && round) events = events.filter((event) => event.round === Number(round));
-      if (typeof agent === 'string' && agent) events = events.filter((event) => 'agentId' in event && event.agentId === agent);
-      if (typeof task === 'string' && task) events = events.filter((event) => 'task' in event && event.task === task);
-      if (typeof errorType === 'string' && errorType) {
-        events = events.filter((event) => 'errorType' in event && event.errorType === errorType);
-      }
-      response.json({ count: events.length, events: events.slice(-500) });
-    });
-
-    app.get('/api/admin/prompt-traces', (request, response) => {
-      let records = [...promptTraceRecords];
-      const { gameId, round, agentId, task, runId } = request.query;
-      if (typeof gameId === 'string' && gameId) records = records.filter((record) => record.gameId === gameId);
-      if (typeof runId === 'string' && runId) records = records.filter((record) => record.runId === runId || record.gameId === runId);
-      if (typeof round === 'string' && round) records = records.filter((record) => record.round === Number(round));
-      if (typeof agentId === 'string' && agentId) records = records.filter((record) => record.agentId === agentId);
-      if (typeof task === 'string' && task) records = records.filter((record) => record.task === task);
-      response.json({ count: records.length, records: records.slice(-200) });
-    });
+    app.use('/api/admin', createAdminTraceRouter({ model, runtimeTrace, promptTraceRecords }));
   } else {
     app.use('/api/admin', (_request, response) => response.status(404).json({ error: 'admin console disabled' }));
   }

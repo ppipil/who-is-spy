@@ -20,7 +20,7 @@ import type {
   Role,
   Vote,
 } from './types.js';
-import { recordTraceRun, type TraceSink } from './trace.js';
+import { recordTraceRun, type TraceSink } from '../trace/trace.js';
 import { chooseWordPair } from './words.js';
 
 const AI_PROFILES = [
@@ -347,6 +347,7 @@ export class GameEngine {
         this.traceSink?.record({
           eventType: 'quality_violation',
           phase: 'describing',
+          runId: game.id,
           ...qualityEvent,
         });
       }
@@ -584,6 +585,7 @@ export class GameEngine {
       });
     }
   }
+
   private checkWinner(game: GameState): Role | null {
     const alive = game.players.filter((player) => player.alive);
     const undercoverAlive = alive.filter((player) => player.role === 'undercover').length;

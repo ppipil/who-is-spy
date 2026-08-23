@@ -5,7 +5,7 @@ import {
   type DescriptionQualityEvent,
 } from './description-quality.js';
 import { GameEngine } from './game-engine.js';
-import { FakeGameModel } from './test-utils.js';
+import { FakeGameModel } from '../support/test-utils.js';
 import type { AgentContext } from './types.js';
 
 class ScriptedDescriptionModel extends FakeGameModel {

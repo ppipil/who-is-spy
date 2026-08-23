@@ -24,7 +24,7 @@ export function TraceTimeline({ nodes, selectedId, expanded, onToggle, onSelect 
 type BranchProps = Omit<Props, 'nodes'> & { node: TimelineNode; depth: number };
 
 function TimelineBranch({ node, depth, selectedId, expanded, onToggle, onSelect }: BranchProps) {
-  const open = expanded.has(node.id) || depth < 2;
+  const open = expanded.has(node.id);
   const hasChildren = node.children.length > 0;
   return (
     <div className="timeline-branch" style={{ '--depth': depth } as CSSProperties}>

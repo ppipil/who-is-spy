@@ -118,8 +118,25 @@ function promptNode(event: RuntimeEvent, prompts: PromptTraceRecord[]): Timeline
 }
 
 function publicNode(event: RuntimeEvent): TimelineNode {
-  const title = event.publicEventType === 'description' ? `${labelAgent(event.agentId)} committed description` : String(event.publicEventType ?? 'public event');
-  return node(`public-${event.sequence}`, 'public', title, 'ok', event.text ? [{ label: 'text', value: String(event.text) }] : [], [], [event]);
+  const title = publicEventTitle(event);
+  const meta = publicEventMeta(event);
+  return node(`public-${event.sequence}`, 'public', title, 'ok', meta, [], [event]);
+}
+
+function publicEventTitle(event: RuntimeEvent): string {
+  if (event.publicEventType === 'description') return `${labelAgent(event.agentId)} committed description`;
+  if (event.publicEventType === 'elimination') return `${labelAgent(event.agentId)} was eliminated`;
+  if (event.publicEventType === 'vote_result') return 'Vote result / tie-break';
+  if (event.publicEventType === 'system' && event.phase === 'voting') return 'Description complete · voting starts';
+  if (event.publicEventType === 'system' && event.phase === 'describing') return `Round ${event.round} starts`;
+  return String(event.publicEventType ?? 'public event');
+}
+
+function publicEventMeta(event: RuntimeEvent): TimelineNode['meta'] {
+  return [
+    ...(event.agentId ? [{ label: 'player', value: labelAgent(event.agentId) }] : []),
+    ...(event.text ? [{ label: 'text', value: String(event.text) }] : []),
+  ];
 }
 
 function qualityNode(event: RuntimeEvent): TimelineNode {

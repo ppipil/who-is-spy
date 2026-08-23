@@ -1,5 +1,5 @@
-import type { AgentContext, GameReview, GameState, Player } from './types.js';
-import type { GameModel } from './model.js';
+import type { AgentContext, GameReview, GameState, Player } from '../core/types.js';
+import type { GameModel } from '../core/model.js';
 
 export class FakeGameModel implements GameModel {
   readonly model = 'deepseek-v4-flash-test-double';

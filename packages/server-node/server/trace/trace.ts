@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
+import { fileURLToPath } from 'node:url';
 
 export type ModelTask = 'describe' | 'vote' | 'review';
 
@@ -208,7 +209,15 @@ export interface TraceSink {
   record(event: RuntimeTraceDraft): void;
 }
 
-export class InMemoryTraceSink implements TraceSink {
+export interface TraceEventStore extends TraceSink {
+  readonly events: RuntimeTraceEvent[];
+}
+
+export const DEFAULT_ADMIN_TRACE_PATH = path.resolve(
+  fileURLToPath(new URL('../../traces/admin-runtime.jsonl', import.meta.url)),
+);
+
+export class InMemoryTraceSink implements TraceEventStore {
   readonly events: RuntimeTraceEvent[] = [];
   private sequence = 0;
 
@@ -235,6 +244,23 @@ export class JsonlTraceSink implements TraceSink {
 
   record(event: RuntimeTraceDraft): void {
     const full = { ...event, timestamp: new Date().toISOString(), sequence: ++this.sequence } as RuntimeTraceEvent;
+    fs.appendFileSync(this.filePath, `${JSON.stringify(full)}\n`, 'utf8');
+  }
+}
+
+export class PersistentJsonlTraceSink implements TraceEventStore {
+  readonly events: RuntimeTraceEvent[];
+  private sequence: number;
+
+  constructor(readonly filePath: string) {
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    this.events = readJsonlTrace(filePath);
+    this.sequence = this.events.reduce((max, event) => Math.max(max, event.sequence), 0);
+  }
+
+  record(event: RuntimeTraceDraft): void {
+    const full = { ...event, timestamp: new Date().toISOString(), sequence: ++this.sequence } as RuntimeTraceEvent;
+    this.events.push(full);
     fs.appendFileSync(this.filePath, `${JSON.stringify(full)}\n`, 'utf8');
   }
 }
@@ -305,6 +331,12 @@ export function filterTraceEventsByRun(events: readonly RuntimeTraceEvent[], run
 export function filterTraceEventsByCase(events: readonly RuntimeTraceEvent[], runId: string, gameId: string): RuntimeTraceEvent[] {
   return events.filter((event) => event.gameId === gameId && event.runId === runId);
 }
+export function createAdminRuntimeTraceSink(): TraceEventStore {
+  const configuredPath = process.env.ADMIN_TRACE_JSONL;
+  if (configuredPath === '0' || configuredPath === 'off' || configuredPath === 'memory') return new InMemoryTraceSink();
+  return new PersistentJsonlTraceSink(configuredPath && configuredPath.trim() ? configuredPath : DEFAULT_ADMIN_TRACE_PATH);
+}
+
 export function createTraceSinkFromEnv(): TraceSink | undefined {
   const sinks: TraceSink[] = [];
   if (process.env.M5_TRACE_CONSOLE === '1') sinks.push(new ConsoleTraceSink());
@@ -487,7 +519,13 @@ export function readJsonlTrace(filePath: string): RuntimeTraceEvent[] {
     .readFileSync(filePath, 'utf8')
     .split(/\r?\n/)
     .filter(Boolean)
-    .map((line) => JSON.parse(line) as RuntimeTraceEvent);
+    .flatMap((line) => {
+      try {
+        return [JSON.parse(line) as RuntimeTraceEvent];
+      } catch {
+        return [];
+      }
+    });
 }
 
 function round(value: number): number {
