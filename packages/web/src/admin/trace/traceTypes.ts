@@ -69,6 +69,7 @@ export interface TimelineNode {
   title: string;
   status: TimelineStatus;
   meta: Array<{ label: string; value: string }>;
+  occurredAt?: string;
   children: TimelineNode[];
   events: RuntimeEvent[];
   prompt?: PromptTraceRecord;

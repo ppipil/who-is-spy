@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DescriptionQualityGate,
   descriptionSimilarity,
+  secretLeakTerms,
   type DescriptionQualityEvent,
 } from './description-quality.js';
 import { GameEngine } from './game-engine.js';
@@ -35,6 +36,8 @@ describe('DescriptionQualityGate', () => {
     const violation = gate.check({ ...base, text: '答案就是秘密乙' });
     expect(violation?.type).toBe('secret_leak');
     expect(JSON.stringify(violation)).not.toContain('秘密乙');
+    expect(secretLeakTerms(['雨伞', '雨衣'])).toEqual(expect.arrayContaining(['雨伞', '雨衣', '雨', '伞', '衣']));
+    expect(gate.check({ ...base, allSecrets: ['雨伞', '雨衣'], text: '下雨时很常见' })?.type).toBe('secret_leak');
   });
 
   it('uses a fixed and explainable similarity threshold without rejecting distinct samples', () => {

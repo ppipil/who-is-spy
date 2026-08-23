@@ -186,5 +186,23 @@ function statusOf(value: unknown): TimelineStatus {
 }
 
 function node(id: string, kind: TimelineNode['kind'], title: string, status: TimelineStatus, meta: TimelineNode['meta'], children: TimelineNode[], events: RuntimeEvent[], prompt?: PromptTraceRecord): TimelineNode {
-  return { id, kind, title, status, meta, children, events, ...(prompt ? { prompt } : {}) };
+  const occurredAt = earliestTimestamp(events, prompt);
+  return {
+    id,
+    kind,
+    title,
+    status,
+    meta,
+    ...(occurredAt ? { occurredAt } : {}),
+    children,
+    events,
+    ...(prompt ? { prompt } : {}),
+  };
+}
+
+function earliestTimestamp(events: RuntimeEvent[], prompt?: PromptTraceRecord): string | undefined {
+  const timestamps = [...events.map((event) => event.timestamp), prompt?.timestamp]
+    .filter((timestamp): timestamp is string => typeof timestamp === 'string' && Number.isFinite(Date.parse(timestamp)))
+    .sort();
+  return timestamps[0];
 }

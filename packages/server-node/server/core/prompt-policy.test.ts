@@ -18,7 +18,7 @@ import type { AgentContext, AgentStrategyId } from './types.js';
 
 describe('prompt policy', () => {
   it('rejects the human exact secret without changing game state and accepts a normal description', async () => {
-    const engine = new GameEngine(new FakeGameModel(), fixedRandom);
+    const engine = new GameEngine(new FakeGameModel(), () => 0);
     const created = engine.createGame();
     const humanWord = engine.getInternalGame(created.id).players.find((player) => player.isHuman)!.word;
 
@@ -194,8 +194,4 @@ function reviewGame() {
     review: null,
     createdAt: Date.now(),
   } as Parameters<typeof buildReviewPrompt>[0];
-}
-
-function fixedRandom(): number {
-  return 0.42;
 }

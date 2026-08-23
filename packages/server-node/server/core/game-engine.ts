@@ -6,6 +6,7 @@ import {
   DescriptionQualityGate,
   normalizeDescription,
   repairGuidance,
+  secretLeakTerms,
   type DescriptionQualityEvent,
   type DescriptionQualityViolation,
 } from './description-quality.js';
@@ -147,8 +148,8 @@ export class GameEngine {
     if (description.length < 2 || description.length > 60) {
       throw new GameRuleError('描述需为 2–60 个字符');
     }
-    if (description.includes(human.word)) {
-      throw new GameRuleError('不能直接说出你的秘密词');
+    if (secretLeakTerms(game.players.map((player) => player.word)).some((term) => description.includes(term))) {
+      throw new GameRuleError('不能提到题目词或题目里的字');
     }
     if (game.descriptions.some((item) => item.round === game.round && item.playerId === human.id)) {
       throw new GameRuleError('本轮已经描述过了');

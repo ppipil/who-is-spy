@@ -104,13 +104,18 @@ describe('GameEngine', () => {
     expect(model.voteContexts).toHaveLength(4);
   });
 
-  it('rejects descriptions that reveal the human secret word', async () => {
+  it('rejects descriptions that reveal a topic word or one of its characters', async () => {
     const engine = new GameEngine(new FakeGameModel(), () => 0);
     const game = engine.createGame();
+    const internal = engine.getInternalGame(game.id);
+    const otherWord = internal.players.find((player) => player.word !== game.human.word)!.word;
 
     await expect(
       engine.submitHumanDescription(game.id, `答案就是${game.human.word}`),
-    ).rejects.toThrow('不能直接说出你的秘密词');
+    ).rejects.toThrow('不能提到题目词或题目里的字');
+    await expect(
+      engine.submitHumanDescription(game.id, `线索里带${otherWord[0]}这个字`),
+    ).rejects.toThrow('不能提到题目词或题目里的字');
   });
 
   it('commits each successful AI description before the next AI starts', async () => {

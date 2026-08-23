@@ -32,6 +32,7 @@ function EventSection({ event }: { event: Record<string, unknown> }) {
         <Row label="runId" value={field(event.runId ?? event.gameId)} />
         <Row label="round" value={field(event.round)} />
         <Row label="sequence" value={field(event.sequence)} />
+        <Row label="time" value={timeLabel(event.timestamp)} />
         <Row label="agent" value={field(event.agentName ?? event.agentId)} />
         <Row label="task" value={field(event.task)} />
         <Row label="attempt" value={field(event.attempt)} />
@@ -74,6 +75,13 @@ function retryLabel(event: Record<string, unknown>): string {
   if (event.willRetry === true) return 'scheduled';
   if (event.willRetry === false) return 'no';
   return '—';
+}
+
+function timeLabel(value: unknown): string {
+  if (typeof value !== 'string') return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString([], { hour12: false });
 }
 
 function latencyLabel(value: unknown): string {

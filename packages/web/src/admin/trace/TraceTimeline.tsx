@@ -31,6 +31,7 @@ function TimelineBranch({ node, depth, selectedId, expanded, onToggle, onSelect 
       <button className={`timeline-node ${node.status} ${selectedId === node.id ? 'is-selected' : ''}`} onClick={() => { onSelect(node); if (hasChildren) onToggle(node.id); }}>
         {hasChildren ? open ? <ChevronDown size={14} /> : <ChevronRight size={14} /> : <span className="timeline-leaf" />}
         <span className="timeline-kind">{node.kind}</span>
+        {nodeTime(node) && <time className="timeline-time" dateTime={nodeTime(node)}>{formatTraceTime(nodeTime(node))}</time>}
         <strong>{node.title}</strong>
         {node.meta.slice(0, 2).map((item) => <small key={item.label}>{item.label}: {item.value}</small>)}
       </button>
@@ -39,4 +40,14 @@ function TimelineBranch({ node, depth, selectedId, expanded, onToggle, onSelect 
       ))}
     </div>
   );
+}
+
+function nodeTime(node: TimelineNode): string {
+  return node.occurredAt ?? (typeof node.events[0]?.timestamp === 'string' ? node.events[0].timestamp : '');
+}
+
+function formatTraceTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
 }

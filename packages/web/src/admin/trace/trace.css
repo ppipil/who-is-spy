@@ -160,6 +160,13 @@
   text-transform: uppercase;
 }
 
+.timeline-time {
+  flex: 0 0 auto;
+  color: #4c463e;
+  font-family: var(--mono);
+  font-size: 11px;
+  white-space: nowrap;
+}
 .timeline-node strong {
   flex: 1;
   min-width: 120px;

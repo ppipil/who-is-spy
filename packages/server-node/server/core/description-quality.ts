@@ -80,8 +80,8 @@ const lengthRule: DescriptionQualityRule = {
 const secretRule: DescriptionQualityRule = {
   check: ({ text, allSecrets }) => {
     const normalized = normalizeDescription(text);
-    return allSecrets.some((secret) => secret.length > 0 && normalized.includes(secret))
-      ? { type: 'secret_leak', message: '描述包含禁止公开的完整词语' }
+    return secretLeakTerms(allSecrets).some((term) => normalized.includes(term))
+      ? { type: 'secret_leak', message: '描述包含禁止公开的题目词或组成字' }
       : null;
   },
 };
@@ -121,6 +121,19 @@ export function repairGuidance(violation: DescriptionQualityViolation): string {
 
 export function normalizeDescription(text: string): string {
   return text.trim().replace(/\s+/g, ' ');
+}
+
+export function secretLeakTerms(secrets: readonly string[]): string[] {
+  const terms = new Set<string>();
+  for (const secret of secrets) {
+    const normalized = normalizeDescription(secret);
+    if (!normalized) continue;
+    terms.add(normalized);
+    for (const char of normalized) {
+      if (/\p{Script=Han}/u.test(char)) terms.add(char);
+    }
+  }
+  return [...terms].sort((left, right) => right.length - left.length || left.localeCompare(right));
 }
 
 export function descriptionSimilarity(left: string, right: string): number {

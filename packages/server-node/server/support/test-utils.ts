@@ -13,7 +13,7 @@ export class FakeGameModel implements GameModel {
   async describe(context: AgentContext): Promise<string> {
     this.descriptionContexts.push(structuredClone(context));
     const descriptions = {
-      cautious: '平常不太显眼，却经常出现在熟悉的地方',
+      cautious: '平常不太显眼，却经常出现在熟悉场所',
       intuitive: '第一感觉带着鲜明氛围，让人很快产生联想',
       analytical: '从用途和类别看，它有一组清楚的边界',
       contrarian: '大家常说的特点之外，反而有个冷门场景',

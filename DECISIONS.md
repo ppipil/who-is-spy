@@ -119,3 +119,8 @@ Case 3(卧底 · 第3轮 · 后手位,公开描述偏狐狸特征):
 - 目的:解决刷新 / 后端 watch reload 后 Admin Trace 只存在内存导致记录消失的问题。
 - 方法:新增 Admin runtime JSONL store,默认写入并回读 `packages/server-node/traces/admin-runtime.jsonl`;`ADMIN_TRACE_JSONL` 可覆盖路径,设置为 `0` / `off` / `memory` 时退回纯内存。Admin API 继续从统一 `runtimeTrace.events` 读取,避免文件与内存重复显示。
 - 验证:`packages/server-node` 下 `npm run build` 通过;`npx vitest run server/admin-lite.test.ts server/trace/trace-lite.test.ts` 为 2 文件 / 5 测试通过;`packages/server-node` 下 `npm test` 为 14 文件 / 53 测试通过;仓库根目录 `npm run contract:node` 为 28 通过 / 0 失败;`packages/web` 下 `npm run build` 通过。未运行真实 DeepSeek。
+### 禁止题目字发言 + Trace 时间显示小修复(分支 `feat/admin-lite`)
+
+- 目的:真人和 AI 描述都不能提到题目词本身或题目词里的任一中文单字,例如 `雨伞`/`雨衣` 场景下描述中出现 `雨`、`伞`、`衣` 都会被拒绝;Admin Trace Timeline 与 Inspector 显示每条 trace 的发生时间。
+- 方法:复用 `DescriptionQualityGate` 新增 `secretLeakTerms()` 生成完整词 + 中文单字禁用片段;`GameEngine.submitHumanDescription()` 对所有题目词使用同一禁词集;Describe prompt 升级到 `describe-v5` 并明确禁止使用词语中的任一汉字。Trace 前端从事件/prompt timestamp 汇总 `occurredAt`,Timeline 显示本地时分秒,Inspector 显示完整本地时间。
+- 验证:`npm test --workspace packages/server-node -- server/core/description-quality.test.ts server/core/game-engine.test.ts server/core/prompt-policy.test.ts` 为 3 文件 / 17 测试通过;`npm run build --workspace packages/web` 通过;`npm run test:node` 为 14 文件 / 54 测试通过;`npm run build --workspace packages/server-node` 通过;`npm run contract:node` 为 28 通过 / 0 失败。未运行真实 DeepSeek。
