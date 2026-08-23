@@ -119,8 +119,22 @@ Case 3(卧底 · 第3轮 · 后手位,公开描述偏狐狸特征):
 - 目的:解决刷新 / 后端 watch reload 后 Admin Trace 只存在内存导致记录消失的问题。
 - 方法:新增 Admin runtime JSONL store,默认写入并回读 `packages/server-node/traces/admin-runtime.jsonl`;`ADMIN_TRACE_JSONL` 可覆盖路径,设置为 `0` / `off` / `memory` 时退回纯内存。Admin API 继续从统一 `runtimeTrace.events` 读取,避免文件与内存重复显示。
 - 验证:`packages/server-node` 下 `npm run build` 通过;`npx vitest run server/admin-lite.test.ts server/trace/trace-lite.test.ts` 为 2 文件 / 5 测试通过;`packages/server-node` 下 `npm test` 为 14 文件 / 53 测试通过;仓库根目录 `npm run contract:node` 为 28 通过 / 0 失败;`packages/web` 下 `npm run build` 通过。未运行真实 DeepSeek。
+### Admin Evaluation MVP(分支 `feat/admin-lite`)
+
+- 目的:按 `docs/PRD.md` 的短版 Evaluation MVP 增加 `/admin` Evaluation 页面,保留 Run Evaluation / Report Detail / Report History,不建设 Dataset/Case/Experiment 平台。
+- 复用结论:新增后端前已审计 `server/evaluation/evaluation.ts` 与 `server/evaluation/eval-cli.ts`;现有 `runEvaluation()` 已覆盖 game runner、completion、valid vote、homogeneity、latency、retry 和 safety gate,因此 Admin 后端只新增 thin adapter `server/admin/evaluation-routes.ts` 调用现有 harness。未新增第二套 evaluation engine。
+- 范围:前端新增 `admin/evaluation/` 模块和 Admin nav;后端新增 `/api/admin/evaluation/cases`、`/api/admin/evaluations`、`POST /api/admin/evaluations`;AI Judge 结构按 PRD 保留为 `Unavailable` adapter,不自动调用真实 DeepSeek,不影响 engineering gate。
+- 限制:现有 GameEngine/harness 暂不支持精确指定固定词对和 Human role,因此两个 canonical cases 第一版通过 `humanDescriptions` 薄参数扩展传入 Normal/Nonsense Human 输入;词对/角色仍由现有 deterministic harness 决定,不重写 GameEngine 来强塞评测场景。
+- 验证:`packages/server-node` 下 `npm run build` 通过;`npx vitest run server/admin-lite.test.ts server/evaluation/evaluation.test.ts` 为 2 文件 / 6 测试通过;`packages/server-node` 下 `npm test` 为 14 文件 / 54 测试通过;仓库根目录 `npm run contract:node` 为 28 通过 / 0 失败;`packages/web` 下 `npm run build` 通过。未运行真实 DeepSeek。
 ### 禁止题目字发言 + Trace 时间显示小修复(分支 `feat/admin-lite`)
 
 - 目的:真人和 AI 描述都不能提到题目词本身或题目词里的任一中文单字,例如 `雨伞`/`雨衣` 场景下描述中出现 `雨`、`伞`、`衣` 都会被拒绝;Admin Trace Timeline 与 Inspector 显示每条 trace 的发生时间。
 - 方法:复用 `DescriptionQualityGate` 新增 `secretLeakTerms()` 生成完整词 + 中文单字禁用片段;`GameEngine.submitHumanDescription()` 对所有题目词使用同一禁词集;Describe prompt 升级到 `describe-v5` 并明确禁止使用词语中的任一汉字。Trace 前端从事件/prompt timestamp 汇总 `occurredAt`,Timeline 显示本地时分秒,Inspector 显示完整本地时间。
 - 验证:`npm test --workspace packages/server-node -- server/core/description-quality.test.ts server/core/game-engine.test.ts server/core/prompt-policy.test.ts` 为 3 文件 / 17 测试通过;`npm run build --workspace packages/web` 通过;`npm run test:node` 为 14 文件 / 54 测试通过;`npm run build --workspace packages/server-node` 通过;`npm run contract:node` 为 28 通过 / 0 失败。未运行真实 DeepSeek。
+
+### Admin Evaluation report 持久化与两栏历史(分支 `feat/admin-lite`)
+
+- 目的:解决 Admin Evaluation 新跑报告刷新后容易丢失/只显示 Latest Run、以及本地运行报告挤压 Baseline/M1-M6 存档占位的问题;同时给长耗时运行增加前端 in-flight 进度反馈。
+- 方法:后端 `/api/admin/evaluations` 拆成 `reports`(本地 Admin runs)和 `archivedReports`(Baseline/M1-M6 存档占位),本地报告默认写入 `packages/server-node/traces/admin-evaluation-reports.json`;前端 Report History 拆成 Local Admin Runs / Archived Milestones 两栏,运行时显示模型、case 数、elapsed 和当前阶段。AI Judge 仍保持 `Unavailable` adapter,未自动调用真实 DeepSeek。
+- 验证:`packages/server-node` 下 `npm run build` 通过;`npx vitest run server/admin-lite.test.ts server/evaluation/evaluation.test.ts` 为 2 文件 / 6 测试通过;`packages/web` 下 `npm run build` 通过;仓库根目录 `npm run contract:node` 为 28 通过 / 0 失败。未运行真实 DeepSeek。
+- 补充:本轮同时修正 canonical Normal/Nonsense `humanDescription` 已传入但未被 `driveGame()` 使用的问题;重新验证结果同上:server build、Admin/Evaluation 定向测试、web build、contract:node 均通过。

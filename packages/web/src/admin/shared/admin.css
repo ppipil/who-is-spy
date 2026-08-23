@@ -57,3 +57,24 @@
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+.admin-tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.admin-tabs button {
+  border: 1px solid rgba(33, 30, 25, 0.14);
+  border-radius: 999px;
+  padding: 7px 12px;
+  background: rgba(255, 255, 255, 0.32);
+  color: inherit;
+  font-family: var(--mono);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.admin-tabs button.is-active {
+  background: #2f2418;
+  color: #fff7ed;
+}

@@ -4,7 +4,7 @@ import type { DescriptionQualityEvent } from '../core/description-quality.js';
 import type { GameModel } from '../core/model.js';
 import { DeepSeekClient } from '../core/model.js';
 import { FakeGameModel } from '../support/test-utils.js';
-import type { AgentContext, GameReview, GameState, Player, PublicGameState, Role } from '../core/types.js';
+import type { AgentContext, GameReview, GameState, Player, PublicGameState, Role, Vote } from '../core/types.js';
 
 export type EvaluationModelKind = 'fake' | 'real';
 
@@ -13,6 +13,8 @@ export interface EvaluationOptions {
   seed: number;
   modelKind: EvaluationModelKind;
   model?: GameModel;
+  humanDescriptions?: string[];
+  caseIds?: string[];
 }
 
 export interface StrategyEvaluationMetrics {
@@ -22,6 +24,19 @@ export interface StrategyEvaluationMetrics {
   votes: number;
   accurateVotes: number;
   voteAccuracy: number;
+}
+
+export interface EvaluationCaseSummary {
+  caseId: string;
+  gameId: string;
+  completed: boolean;
+  humanDescription: string;
+  humanVotesReceived: number;
+  totalAiVotes: number;
+  reasonAwarenessHits: number;
+  descriptions: Array<{ playerId: string; playerName: string; strategyId: string; round: number; text: string }>;
+  votes: Array<{ voterId: string; voterName: string; strategyId: string; targetId: string; round: number; reason: string }>;
+  error?: string;
 }
 
 export interface EvaluationMetrics {
@@ -38,6 +53,13 @@ export interface EvaluationMetrics {
   tokenUsage: { input: number; output: number; total: number; source: 'unavailable' };
   byStrategyId: Record<string, StrategyEvaluationMetrics>;
   descriptionHomogeneity: number;
+  humanInputResponsiveness?: {
+    available: boolean;
+    normalHumanVotes: number;
+    nonsenseHumanVotes: number;
+    reasonAwarenessHits: number;
+    note: string;
+  };
   safety: {
     secretLeakOccurrences: number;
     publicStateLeakOccurrences: number;
@@ -48,6 +70,7 @@ export interface EvaluationMetrics {
 export interface EvaluationResult {
   schemaVersion: 1;
   configuration: { games: number; seed: number; model: EvaluationModelKind };
+  cases: EvaluationCaseSummary[];
   metrics: EvaluationMetrics;
   gate: { passed: boolean; failures: string[] };
 }
@@ -156,13 +179,14 @@ export async function runEvaluation(options: EvaluationOptions): Promise<Evaluat
   let illegalStateOccurrences = 0;
   const pairSimilarities: number[] = [];
   const strategyMetrics = new Map<string, MutableStrategyMetrics>();
+  const caseSummaries: EvaluationCaseSummary[] = [];
 
   for (let gameIndex = 0; gameIndex < options.games; gameIndex += 1) {
     const engine = new GameEngine(model, random, (event) => instrumentation.qualityViolations.push(event));
     let publicGame = engine.createGame();
     publicStateLeakOccurrences += countPublicStateLeaks(publicGame);
     try {
-      publicGame = await driveGame(engine, publicGame);
+      publicGame = await driveGame(engine, publicGame, options.humanDescriptions?.[gameIndex]);
       publicStateLeakOccurrences += countPublicStateLeaks(publicGame);
       const internal = engine.getInternalGame(publicGame.id);
       if (publicGame.phase === 'finished' && publicGame.winner) {
@@ -173,8 +197,10 @@ export async function runEvaluation(options: EvaluationOptions): Promise<Evaluat
       }
       secretLeakOccurrences += countSecretLeaks(internal);
       pairSimilarities.push(...descriptionPairSimilarities(internal));
-    } catch {
+      caseSummaries.push(caseSummary(options, gameIndex, publicGame, internal));
+    } catch (error) {
       illegalStateOccurrences += 1;
+      caseSummaries.push(failedCaseSummary(options, gameIndex, publicGame, error));
     }
   }
 
@@ -221,6 +247,7 @@ export async function runEvaluation(options: EvaluationOptions): Promise<Evaluat
       ]),
     ),
     descriptionHomogeneity: average(pairSimilarities),
+    humanInputResponsiveness: humanInputResponsiveness(caseSummaries),
     safety: { secretLeakOccurrences, publicStateLeakOccurrences, illegalStateOccurrences },
   };
 
@@ -234,12 +261,13 @@ export async function runEvaluation(options: EvaluationOptions): Promise<Evaluat
   return {
     schemaVersion: 1,
     configuration: { games: options.games, seed: options.seed, model: options.modelKind },
+    cases: caseSummaries,
     metrics,
     gate: { passed: failures.length === 0, failures },
   };
 }
 
-async function driveGame(engine: GameEngine, initial: PublicGameState): Promise<PublicGameState> {
+async function driveGame(engine: GameEngine, initial: PublicGameState, firstHumanDescription?: string): Promise<PublicGameState> {
   let game = initial;
   let actions = 0;
   while (game.phase !== 'finished' && actions < 24) {
@@ -247,7 +275,7 @@ async function driveGame(engine: GameEngine, initial: PublicGameState): Promise<
     const human = game.players.find((player) => player.isHuman)!;
     if (!human.alive) return engine.continueAsSpectator(game.id);
     if (game.phase === 'describing') {
-      game = await engine.submitHumanDescription(game.id, `第${game.round}轮我想到一种常见体验`);
+      game = await engine.submitHumanDescription(game.id, game.round === 1 && firstHumanDescription ? firstHumanDescription : `第${game.round}轮我想到一种常见体验`);
     } else {
       const allowed = game.eligibleTargetIds
         ? game.eligibleTargetIds
@@ -258,6 +286,82 @@ async function driveGame(engine: GameEngine, initial: PublicGameState): Promise<
   return game;
 }
 
+function caseSummary(options: EvaluationOptions, gameIndex: number, publicGame: PublicGameState, game: GameState): EvaluationCaseSummary {
+  const playerById = new Map(game.players.map((player) => [player.id, player]));
+  const aiVotes = game.votes.filter((vote) => vote.voterId !== 'human');
+  return {
+    caseId: options.caseIds?.[gameIndex] ?? `game-${gameIndex + 1}`,
+    gameId: game.id,
+    completed: publicGame.phase === 'finished' && Boolean(publicGame.winner),
+    humanDescription: options.humanDescriptions?.[gameIndex] ?? `第${gameIndex + 1}局我想到一种常见体验`,
+    humanVotesReceived: aiVotes.filter((vote) => vote.targetId === 'human').length,
+    totalAiVotes: aiVotes.length,
+    reasonAwarenessHits: aiVotes.filter((vote) => reasonMentionsHumanInput(vote)).length,
+    descriptions: game.descriptions
+      .filter((description) => description.playerId !== 'human')
+      .map((description) => {
+        const player = playerById.get(description.playerId);
+        return {
+          playerId: description.playerId,
+          playerName: player?.name ?? description.playerId,
+          strategyId: player?.strategyId ?? 'unknown',
+          round: description.round,
+          text: description.text,
+        };
+      }),
+    votes: aiVotes.map((vote) => {
+      const player = playerById.get(vote.voterId);
+      return {
+        voterId: vote.voterId,
+        voterName: player?.name ?? vote.voterId,
+        strategyId: player?.strategyId ?? 'unknown',
+        targetId: vote.targetId,
+        round: vote.round,
+        reason: vote.reason,
+      };
+    }),
+  };
+}
+
+function failedCaseSummary(options: EvaluationOptions, gameIndex: number, publicGame: PublicGameState, error: unknown): EvaluationCaseSummary {
+  return {
+    caseId: options.caseIds?.[gameIndex] ?? `game-${gameIndex + 1}`,
+    gameId: publicGame.id,
+    completed: false,
+    humanDescription: options.humanDescriptions?.[gameIndex] ?? `第${gameIndex + 1}局我想到一种常见体验`,
+    humanVotesReceived: 0,
+    totalAiVotes: 0,
+    reasonAwarenessHits: 0,
+    descriptions: [],
+    votes: [],
+    error: error instanceof Error ? error.message : String(error),
+  };
+}
+
+function humanInputResponsiveness(cases: EvaluationCaseSummary[]): EvaluationMetrics['humanInputResponsiveness'] {
+  const normal = cases.find((item) => item.caseId === 'normal-human-input');
+  const nonsense = cases.find((item) => item.caseId === 'nonsense-human-input');
+  if (!normal || !nonsense) {
+    return {
+      available: false,
+      normalHumanVotes: normal?.humanVotesReceived ?? 0,
+      nonsenseHumanVotes: nonsense?.humanVotesReceived ?? 0,
+      reasonAwarenessHits: nonsense?.reasonAwarenessHits ?? 0,
+      note: 'Not Available. Requires both canonical cases.',
+    };
+  }
+  return {
+    available: true,
+    normalHumanVotes: normal.humanVotesReceived,
+    nonsenseHumanVotes: nonsense.humanVotesReceived,
+    reasonAwarenessHits: nonsense.reasonAwarenessHits,
+    note: 'Compare whether nonsense human input changes suspicion and vote reasons.',
+  };
+}
+
+function reasonMentionsHumanInput(vote: Vote): boolean {
+  return /人类|玩家|描述|表达|敷衍|无关|信息|异常|奇怪|落差|矛盾|自然感/.test(vote.reason);
+}
 function countPublicStateLeaks(game: PublicGameState): number {
   if (game.phase === 'finished') return 0;
   return game.players.reduce((count, player) => {
