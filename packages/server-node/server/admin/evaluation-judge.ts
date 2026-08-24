@@ -173,9 +173,9 @@ const DIMENSIONS: readonly JudgeDimensionDefinition[] = [
   {
     id: 'humanInputResponsiveness',
     label: '真人输入响应',
-    promptVersion: 'judge-human-input-responsiveness-v2',
+    promptVersion: 'judge-human-input-responsiveness-v3',
     schema: humanInputResponsivenessSchema,
-    rubric: '只评估 Human Input Responsiveness：对比 Normal 与 Nonsense 两个完成用例，判断 AI 的公开行为是否真正响应人类输入变化。0 分表示基本无差异，10 分表示响应清晰且合理。不要评价其他指标。',
+    rubric: '只评估 Human Input Responsiveness：对比 Normal 与 Nonsense 两个完成用例，判断 AI 是否把纯数字、随机字符、重复语气词或无关内容识别为强异常证据。结合 codeEvidence 的首轮收票率、相对 Normal 的 lift 和明确异常理由判断；若代码验收 passed=false，评分不得高于 4。简短但相关的弱线索不能被误判为胡言乱语。0 分表示基本无差异，10 分表示响应清晰且合理。不要评价其他指标。',
     applicable: hasCompletedHumanComparison,
     unavailableReason: '该指标需要 Normal 与 Nonsense 两个完成用例，当前证据不足。',
     evidence: (result, redact) => ({

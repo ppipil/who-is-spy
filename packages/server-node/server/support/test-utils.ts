@@ -58,3 +58,28 @@ export class FakeGameModel implements GameModel {
     };
   }
 }
+
+/** Evaluation-only deterministic double for the paired Normal/Nonsense acceptance case. */
+export class EvaluationFakeGameModel extends FakeGameModel {
+  override async vote(
+    context: AgentContext,
+    allowedTargets: Player[],
+  ): Promise<{ targetId: string; reason: string }> {
+    const humanDescription = [...context.game.publicDescriptions]
+      .reverse()
+      .find((item) => item.playerId === 'human' && item.round === context.game.round);
+    const human = allowedTargets.find((player) => player.isHuman);
+    if (human && humanDescription && isObviouslyMeaningless(humanDescription.text)) {
+      this.voteContexts.push(structuredClone(context));
+      return { targetId: human.id, reason: '该玩家只给出数字或重复语气词，没有提供可判断的有效线索' };
+    }
+
+    const nonHumanTargets = allowedTargets.filter((player) => !player.isHuman);
+    return super.vote(context, nonHumanTargets.length > 0 ? nonHumanTargets : allowedTargets);
+  }
+}
+
+function isObviouslyMeaningless(text: string): boolean {
+  const compact = text.replace(/[\s，。！？、,.!]/gu, '');
+  return compact.length >= 4 && /^[\d一二三四五六七八九十零〇哈哈嘿嘿呵啊嗯]+$/u.test(compact);
+}

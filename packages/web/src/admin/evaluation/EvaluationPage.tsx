@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { evaluationApi } from './evaluationApi';
 import { EvaluationEvidence } from './EvaluationEvidence';
-import type { EvaluationCaseOption, EvaluationModel, EvaluationReport } from './evaluationTypes';
+import type { EvaluationCaseOption, EvaluationMetrics, EvaluationModel, EvaluationReport } from './evaluationTypes';
 import './evaluation.css';
 
 const RUNNING_STAGES = ['准备评测用例 Preparing cases', '运行评测框架 Evaluation harness', '等待 AI Judge / 保存报告', '刷新报告列表 Refreshing reports'];
@@ -12,6 +12,7 @@ export function EvaluationPage() {
   const [caseInputs, setCaseInputs] = useState<Record<string, string>>({});
   const [rounds, setRounds] = useState(1);
   const [maxRounds, setMaxRounds] = useState(5);
+  const [codeVersion, setCodeVersion] = useState('检测中…');
   const [provider, setProvider] = useState<{ model: string; configured: boolean; envProxyEnabled: boolean } | null>(null);
   const [selectedCases, setSelectedCases] = useState<string[]>(['normal-human-input', 'nonsense-human-input']);
   const [model, setModel] = useState<EvaluationModel>('fake');
@@ -47,6 +48,7 @@ export function EvaluationPage() {
       setCaseInputs((current) => Object.keys(current).length > 0 ? current : Object.fromEntries(caseResult.cases.map((item) => [item.id, item.humanDescription])));
       setRounds((current) => current || caseResult.defaultRounds);
       setMaxRounds(caseResult.maxRounds);
+      setCodeVersion(caseResult.codeVersion);
       setProvider(caseResult.provider);
       setReports(history.reports);
       setArchivedReports(history.archivedReports);
@@ -122,6 +124,7 @@ export function EvaluationPage() {
             <small className={provider?.configured ? 'provider-status is-ready' : 'provider-status'}>
               DeepSeek: {provider?.model ?? '检测中…'} · {provider?.configured ? '已配置 Configured' : '未配置 Not configured'} · {provider?.envProxyEnabled ? '代理已启用 Proxy on' : '系统代理未启用 Proxy off'}
             </small>
+            <small className="provider-status">当前代码版本 Code version: <code>{codeVersion}</code></small>
           </fieldset>
           <fieldset className="word-editor">
             <legend>题目 Words</legend>
@@ -207,6 +210,7 @@ function ReportDetail({ report }: { report: EvaluationReport | null }) {
       <div className="summary-grid">
         <Metric label="来源 Source" value={report.source === 'archive' ? '归档 Archive' : '本地 Local'} />
         <Metric label="模型 Model" value={report.model === 'real' ? 'DeepSeek' : 'Fake 模型'} />
+        <Metric label="代码版本 Code Version" value={report.codeVersion ?? '旧版未记录 Legacy'} />
         <Metric label="用例 Cases" value={`${report.cases.length || deterministic.configuration.games}`} />
         <Metric label="耗时 Duration" value={formatDuration(report.durationMs)} />
         <Metric label="裁判 Judge" value={judgeStatusLabel(judge.status)} />
@@ -236,9 +240,11 @@ function ReportDetail({ report }: { report: EvaluationReport | null }) {
       <h3>真人输入响应 Human Input Responsiveness</h3>
       <div className="metric-grid">
         <Metric label="Judge Score" value={judgeResponsivenessScore(report)} />
-        <Metric label="Normal votes" value={String(metrics.humanInputResponsiveness?.normalHumanVotes ?? 0)} />
-        <Metric label="Nonsense votes" value={String(metrics.humanInputResponsiveness?.nonsenseHumanVotes ?? 0)} />
-        <Metric label="reason awareness hits" value={String(metrics.humanInputResponsiveness?.reasonAwarenessHits ?? 0)} />
+        <Metric label="代码验收 Code Acceptance" value={responsivenessAcceptance(metrics.humanInputResponsiveness)} />
+        <Metric label="Normal 首轮收票率" value={formatOptionalRate(metrics.humanInputResponsiveness?.normalHumanVoteRate)} />
+        <Metric label="Nonsense 首轮收票率" value={formatOptionalRate(metrics.humanInputResponsiveness?.nonsenseHumanVoteRate)} />
+        <Metric label="收票率提升 Vote-rate Lift" value={formatPercentagePoints(metrics.humanInputResponsiveness?.voteRateLift)} />
+        <Metric label="异常理由命中 Awareness" value={String(metrics.humanInputResponsiveness?.reasonAwarenessHits ?? 0)} />
       </div>      <h3>效率 Efficiency</h3>
       <div className="metric-grid">
         <Metric label="P50" value={formatMs(metrics.latencyMs.p50)} />
@@ -337,6 +343,7 @@ function HistoryColumn({ title, empty, reports, activeId, onSelect, initialLimit
             <strong>{report.title}</strong>
             <span>{reportStatusLabel(report.status)} · {report.source === 'archive' ? '归档 archive' : modelLabel(report.model)}</span>
             <small>{historySnapshot(report)}</small>
+            <small>Code: {report.codeVersion ?? 'legacy-unrecorded'}</small>
           </button>
           {report.evidenceUrl && <a href={report.evidenceUrl} target="_blank" rel="noreferrer">View Evidence / GitHub ↗</a>}
         </div>
@@ -382,6 +389,20 @@ function Metric({ label, value, status }: { label: string; value: string; status
 function currentJudgeOutput(report: EvaluationReport): NonNullable<NonNullable<EvaluationReport['judge']>['output']> | null {
   const output = report.judge?.output;
   return output?.personaAdherence && output?.semanticDiversity && output?.contextUtilization && output?.humanInputResponsiveness && output?.exposureControl ? output : null;
+}
+
+function responsivenessAcceptance(value: EvaluationMetrics['humanInputResponsiveness']): string {
+  if (!value?.available) return '不可用 Unavailable';
+  if (typeof value.passed !== 'boolean') return '旧版未记录 Legacy';
+  return value.passed ? '通过 PASS' : '警告 WARN';
+}
+
+function formatOptionalRate(value: number | undefined): string {
+  return typeof value === 'number' ? formatRate(value) : '旧版未记录 Legacy';
+}
+
+function formatPercentagePoints(value: number | undefined): string {
+  return typeof value === 'number' ? `${Math.round(value * 100)}pp` : '旧版未记录 Legacy';
 }
 
 function judgeResponsivenessScore(report: EvaluationReport): string {

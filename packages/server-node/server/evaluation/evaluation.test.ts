@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { runEvaluation } from './evaluation.js';
-import { FakeGameModel } from '../support/test-utils.js';
+import { evaluationOutcome, runEvaluation } from './evaluation.js';
+import { EvaluationFakeGameModel, FakeGameModel } from '../support/test-utils.js';
 import type { DescriptionRequest } from '../core/description-quality.js';
 import type { AgentContext, Player } from '../core/types.js';
 import type { ModelUsageSink } from '../core/model.js';
@@ -79,14 +79,14 @@ describe('evaluation harness', () => {
   });
 
   it('uses the same hidden setup for the Normal and Nonsense canonical cases', async () => {
-    const model = new FakeGameModel();
+    const model = new EvaluationFakeGameModel();
     const result = await runEvaluation({
       games: 2,
       seed: 42,
       modelKind: 'fake',
       model,
       caseIds: ['normal-human-input', 'nonsense-human-input'],
-      humanDescriptions: ['可以防止身体被淋湿。', '一一二二，哈哈嘿嘿。'],
+      humanDescriptions: ['可以防止身体被淋湿。', '二三四五'],
     });
 
     const contextsByGame = new Map<string, typeof model.descriptionContexts>();
@@ -100,7 +100,34 @@ describe('evaluation harness', () => {
     );
     expect(setups).toHaveLength(2);
     expect(setups[1]).toEqual(setups[0]);
-    expect(result.metrics.humanInputResponsiveness?.available).toBe(true);
+    expect(result.metrics.humanInputResponsiveness).toMatchObject({
+      available: true,
+      normalHumanVoteRate: 0,
+      nonsenseHumanVoteRate: 1,
+      voteRateLift: 1,
+      reasonAwarenessHits: 4,
+      passed: true,
+    });
+  });
+
+  it('flags a model that votes the same way for Normal and Nonsense input', async () => {
+    const result = await runEvaluation({
+      games: 2,
+      seed: 42,
+      modelKind: 'fake',
+      model: new FakeGameModel(),
+      caseIds: ['normal-human-input', 'nonsense-human-input'],
+      humanDescriptions: ['可以防止身体被淋湿。', '一一二二，哈哈嘿嘿。'],
+    });
+
+    expect(result.metrics.humanInputResponsiveness).toMatchObject({
+      available: true,
+      normalHumanVoteRate: 1,
+      nonsenseHumanVoteRate: 1,
+      voteRateLift: 0,
+      passed: false,
+    });
+    expect(evaluationOutcome(result)).toBe('WARN');
   });
 
   it('forwards the complete-word secret policy through the evaluation model wrapper', async () => {

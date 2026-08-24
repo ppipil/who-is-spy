@@ -4,10 +4,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Router } from 'express';
 import { z } from 'zod';
-import { runEvaluation, type EvaluationModelKind, type EvaluationResult } from '../evaluation/evaluation.js';
-import { FakeGameModel } from '../support/test-utils.js';
+import { evaluationOutcome, runEvaluation, type EvaluationModelKind, type EvaluationResult } from '../evaluation/evaluation.js';
+import { EvaluationFakeGameModel } from '../support/test-utils.js';
 import { DeepSeekClient, type GameModel } from '../core/model.js';
 import type { TraceEventStore } from '../trace/trace.js';
+import { resolveCodeVersion } from '../support/code-version.js';
 import { runAiJudge, type EvaluationJudgeResult, type JudgeTraceContext } from './evaluation-judge.js';
 
 const CANONICAL_CASES = [
@@ -16,6 +17,7 @@ const CANONICAL_CASES = [
 ] as const;
 
 const EVALUATION_WORD_PAIR = ['雨伞', '雨衣'] as const;
+const CURRENT_CODE_VERSION = resolveCodeVersion();
 const editableText = z.string().trim().min(2).max(120);
 const wordPairInput = z.tuple([z.string().trim().min(1).max(20), z.string().trim().min(1).max(20)]).refine(
   ([civilianWord, undercoverWord]) => civilianWord !== undercoverWord,
@@ -34,6 +36,7 @@ interface AdminEvaluationReport {
   model: EvaluationModelKind;
   cases: AdminEvaluationCase[];
   durationMs: number;
+  codeVersion?: string;
   evidenceUrl?: string;
   archivedEvidence?: ArchivedEvaluationEvidence;
   deterministic?: EvaluationResult;
@@ -86,6 +89,7 @@ export function createAdminEvaluationRouter(defaultModel: GameModel, runtimeTrac
     response.json({
       cases: CANONICAL_CASES,
       fixtureWords: EVALUATION_WORD_PAIR,
+      codeVersion: CURRENT_CODE_VERSION,
       defaultRounds: 1,
       maxRounds: 5,
       provider: {
@@ -127,7 +131,7 @@ export function createAdminEvaluationRouter(defaultModel: GameModel, runtimeTrac
         judgeEnabled: input.judgeEnabled,
       });
       const evaluationModel = input.model === 'fake'
-        ? new FakeGameModel()
+        ? new EvaluationFakeGameModel()
         : new DeepSeekClient();
       const result = await runEvaluation({
         games: selectedCases.length,
@@ -222,6 +226,7 @@ function loadReports(): AdminEvaluationReport[] {
             const normalized = {
               ...report,
               source: 'local' as const,
+              codeVersion: report.codeVersion ?? 'legacy-unrecorded',
               title: report.title === 'Latest Run' ? localReportTitle(report.model, report.cases.length) : report.title,
             };
             return { ...normalized, problems: topProblems(normalized.deterministic!, normalized.judge!) };
@@ -250,10 +255,11 @@ function buildReport(
     source: 'local',
     title: localReportTitle(model, cases.length),
     createdAt: new Date().toISOString(),
-    status: deterministic.gate.passed ? 'PASS' : 'FAIL',
+    status: evaluationOutcome(deterministic),
     model,
     cases,
     durationMs,
+    codeVersion: CURRENT_CODE_VERSION,
     deterministic,
     judge,
     problems: topProblems(deterministic, judge),
@@ -269,6 +275,13 @@ function localReportTitle(model: EvaluationModelKind, caseCount: number): string
 function topProblems(result: EvaluationResult, judge: EvaluationJudgeResult): AdminEvaluationReport['problems'] {
   const problems: AdminEvaluationReport['problems'] = [];
   if (!result.gate.passed) problems.push(...result.gate.failures.slice(0, 3).map((failure) => ({ title: failure })));
+  const responsiveness = result.metrics.humanInputResponsiveness;
+  if (responsiveness?.available && !responsiveness.passed) {
+    problems.push({
+      title: '胡言乱语识别未达标 Nonsense input response is below acceptance',
+      evidence: 'Nonsense ' + Math.round(responsiveness.nonsenseHumanVoteRate * 100) + '% · Normal ' + Math.round(responsiveness.normalHumanVoteRate * 100) + '% · Lift ' + Math.round(responsiveness.voteRateLift * 100) + 'pp · Reasons ' + responsiveness.reasonAwarenessHits,
+    });
+  }
   if (result.metrics.latencyMs.p95 > 10_000) problems.push({ title: 'P95 延迟偏高 P95 latency is high', evidence: `${result.metrics.latencyMs.p95}ms` });
   if (result.metrics.descriptionHomogeneity > 0.4) problems.push({ title: '描述措辞同质化偏高 Description lexical homogeneity is high', evidence: String(result.metrics.descriptionHomogeneity) });
   const judgeDimensions = [
@@ -397,6 +410,7 @@ function historical(id: string, title: string, status: AdminEvaluationReport['st
     model: 'real',
     cases: [],
     durationMs: 0,
+    codeVersion: evidence.evaluatedCommit,
     evidenceUrl: `https://github.com/ppipil/who-is-spy/blob/${evidence.sourceBranch}/${evidence.sourcePath}`,
     archivedEvidence: evidence,
     problems: [],

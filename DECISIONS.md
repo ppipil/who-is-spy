@@ -216,3 +216,13 @@ Case 3(卧底 · 第3轮 · 后手位,公开描述偏狐狸特征):
 - 源头脱敏：Prompt Debug 对所有字符串执行敏感词子串替换，不再只处理字段值完全相等的情况；AI Judge 的 `inputSummary` 与 `output` 在写入 runtime trace 前使用同一 sensitive terms redactor 二次脱敏。
 - 历史清理与运行验证：只把 `packages/server-node/traces/*.jsonl` 内已知评测词替换为 `[REDACTED]`，保留 Trace 结构与事件；随后重启 Node 后端并运行一次 deterministic fake Evaluation（未调用 DeepSeek），报告 PASS，`admin-runtime.jsonl` / `prompt-trace.jsonl` / `runtime-trace.jsonl` 的完整评测词命中和 `fixtureWords` 字段数均为 0。
 - 验证：Prompt/Admin 定向回归为 2 文件 / 16 测试通过；`npm.cmd run build` 前后端通过；`npm.cmd run test:node` 为 16 文件 / 71 测试通过；`npm.cmd run contract:node` 为 28 通过 / 0 失败。
+
+
+### Vote Prompt v5 胡言乱语识别与 Evaluation 代码版本（分支 `feat/admin-lite`）
+
+- 问题证据：旧 Vote Prompt 只要求选择最可疑玩家并引用公开发言，没有区分简短弱线索与纯数字/随机字符；本地已有真实 Evaluation 出现 Normal 1 票、Nonsense 1 票、Human Input Responsiveness Judge 2/10 但报告仍为 PASS，说明此前只有观测字段、没有行为验收。
+- Prompt：`VOTE_PROMPT_VERSION` 从 `vote-v4` 升级到 `vote-v5`；新增所有 Persona 共用且优先级高于 Persona 的证据政策，要求逐一比较合法候选、不能跳过人类玩家，区分简短相关线索与纯数字/随机字符/重复语气词/无关输入；明显无意义输入是强异常证据，但若存在更明确公开矛盾仍允许投其他玩家。谨慎 Persona 同步澄清“简短不等于胡言乱语”。
+- Evaluation：schema 升级到 v2；paired Normal/Nonsense 指标只统计注入输入后的第 1 轮第 1 ballot，并聚合所有重复 rounds。代码验收要求 Nonsense 首轮人类收票率 ≥50%、相对 Normal lift ≥25pp、异常理由命中 >0；未达标的新报告显示 WARN 并加入 Top Problem，不再用 Engineering Gate PASS 掩盖行为问题。AI Judge Human Input Responsiveness Prompt 升级到 v3，并约束 code acceptance 失败时分数不得高于 4。
+- 确定性验证：新增 `EvaluationFakeGameModel` 仅供 Evaluation 使用，不改变网页游戏/contract 的 `FakeGameModel`。paired fake 结果为 Normal 0%、Nonsense 100%、lift +100pp、4/4 异常理由、PASS；对 Normal/Nonsense 都投人类的旧 Fake 行为得到 lift 0、`passed=false`、结果 WARN。用户示例“二三四五”包含在回归测试中。
+- 版本标注：Evaluation cases API 返回当前代码版本；新本地报告持久保存运行时 Git 短提交号（代码目录有未提交改动时附 `+dirty`），旧报告显示 `legacy-unrecorded`，归档报告继续显示各自 evaluated commit。页面在运行配置、报告详情和 History 中展示 Code Version。部署环境可用 `CODE_VERSION` / 常见 Git SHA 环境变量覆盖。
+- 运行验证：Prompt/Evaluation/Admin/code-version 定向测试为 4 文件 / 25 测试通过；`npm.cmd run build` 前后端通过；`npm.cmd run test:node` 为 17 文件 / 75 测试通过；`npm.cmd run contract:node` 为 28 通过 / 0 失败。本机 Admin API paired fake 冒烟为 PASS 且报告版本与当前 API 版本一致；未调用 DeepSeek。浏览器可视自动化因本机沙箱刷新故障未能连接，不冒充已通过。

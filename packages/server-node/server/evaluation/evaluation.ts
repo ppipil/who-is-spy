@@ -3,7 +3,7 @@ import { GameEngine } from '../core/game-engine.js';
 import type { DescriptionQualityEvent, DescriptionRequest } from '../core/description-quality.js';
 import type { GameModel, ModelUsageSink } from '../core/model.js';
 import { DeepSeekClient } from '../core/model.js';
-import { FakeGameModel } from '../support/test-utils.js';
+import { EvaluationFakeGameModel } from '../support/test-utils.js';
 import type { AgentContext, GameReview, GameState, Player, PublicGameState, Role, Vote } from '../core/types.js';
 import type { TraceEntrypoint, TraceSink } from '../trace/trace.js';
 import { createUsageAccumulator, type CostMetrics, type TokenUsageMetrics } from './usage-metrics.js';
@@ -39,6 +39,9 @@ export interface EvaluationCaseSummary {
   humanVotesReceived: number;
   totalAiVotes: number;
   reasonAwarenessHits: number;
+  firstBallotHumanVotes: number;
+  firstBallotAiVotes: number;
+  firstBallotReasonAwarenessHits: number;
   descriptions: Array<{ playerId: string; playerName: string; strategyId: string; round: number; text: string }>;
   votes: Array<{ voterId: string; voterName: string; strategyId: string; targetId: string; round: number; reason: string }>;
   error?: string;
@@ -62,8 +65,14 @@ export interface EvaluationMetrics {
   humanInputResponsiveness?: {
     available: boolean;
     normalHumanVotes: number;
+    normalAiVotes: number;
+    normalHumanVoteRate: number;
     nonsenseHumanVotes: number;
+    nonsenseAiVotes: number;
+    nonsenseHumanVoteRate: number;
+    voteRateLift: number;
     reasonAwarenessHits: number;
+    passed: boolean;
     note: string;
   };
   safety: {
@@ -74,11 +83,17 @@ export interface EvaluationMetrics {
 }
 
 export interface EvaluationResult {
-  schemaVersion: 1;
+  schemaVersion: 2;
   configuration: { games: number; seed: number; model: EvaluationModelKind };
   cases: EvaluationCaseSummary[];
   metrics: EvaluationMetrics;
   gate: { passed: boolean; failures: string[] };
+}
+
+export function evaluationOutcome(result: EvaluationResult): 'PASS' | 'WARN' | 'FAIL' {
+  if (!result.gate.passed) return 'FAIL';
+  const responsiveness = result.metrics.humanInputResponsiveness;
+  return responsiveness?.available && !responsiveness.passed ? 'WARN' : 'PASS';
 }
 
 interface MutableStrategyMetrics {
@@ -193,7 +208,7 @@ export async function runEvaluation(options: EvaluationOptions): Promise<Evaluat
     strategyVotes: new Map(),
     qualityViolations: [],
   };
-  const delegate: GameModel = options.model ?? (options.modelKind === 'fake' ? new FakeGameModel() : new DeepSeekClient());
+  const delegate: GameModel = options.model ?? (options.modelKind === 'fake' ? new EvaluationFakeGameModel() : new DeepSeekClient());
   if (!delegate.isConfigured()) throw new Error(`model ${delegate.model} is not configured`);
   const usage = createUsageAccumulator(options.games);
   delegate.setUsageSink?.(usage.record);
@@ -301,7 +316,7 @@ export async function runEvaluation(options: EvaluationOptions): Promise<Evaluat
   if (metrics.validVoteRate !== 1) failures.push('validVoteRate must equal 1.0');
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     configuration: { games: options.games, seed: options.seed, model: options.modelKind },
     cases: caseSummaries,
     metrics,
@@ -335,6 +350,7 @@ async function driveGame(engine: GameEngine, initial: PublicGameState, firstHuma
 function caseSummary(options: EvaluationOptions, gameIndex: number, publicGame: PublicGameState, game: GameState): EvaluationCaseSummary {
   const playerById = new Map(game.players.map((player) => [player.id, player]));
   const aiVotes = game.votes.filter((vote) => vote.voterId !== 'human');
+  const firstBallotAiVotes = aiVotes.filter((vote) => vote.round === 1 && vote.ballot === 1);
   return {
     caseId: options.caseIds?.[gameIndex] ?? `game-${gameIndex + 1}`,
     gameId: game.id,
@@ -343,6 +359,9 @@ function caseSummary(options: EvaluationOptions, gameIndex: number, publicGame: 
     humanVotesReceived: aiVotes.filter((vote) => vote.targetId === 'human').length,
     totalAiVotes: aiVotes.length,
     reasonAwarenessHits: aiVotes.filter((vote) => reasonMentionsHumanInput(vote)).length,
+    firstBallotHumanVotes: firstBallotAiVotes.filter((vote) => vote.targetId === 'human').length,
+    firstBallotAiVotes: firstBallotAiVotes.length,
+    firstBallotReasonAwarenessHits: firstBallotAiVotes.filter((vote) => reasonMentionsHumanInput(vote)).length,
     descriptions: game.descriptions
       .filter((description) => description.playerId !== 'human')
       .map((description) => {
@@ -378,6 +397,9 @@ function failedCaseSummary(options: EvaluationOptions, gameIndex: number, public
     humanVotesReceived: 0,
     totalAiVotes: 0,
     reasonAwarenessHits: 0,
+    firstBallotHumanVotes: 0,
+    firstBallotAiVotes: 0,
+    firstBallotReasonAwarenessHits: 0,
     descriptions: [],
     votes: [],
     error: error instanceof Error ? error.message : String(error),
@@ -395,28 +417,42 @@ function hasPairedCanonicalCases(caseIds: string[] | undefined): boolean {
  * 缺任一配对 case 时明确返回 unavailable，不用不完整样本推断响应性。
  */
 function humanInputResponsiveness(cases: EvaluationCaseSummary[]): EvaluationMetrics['humanInputResponsiveness'] {
-  const normal = cases.find((item) => item.caseId === 'normal-human-input');
-  const nonsense = cases.find((item) => item.caseId === 'nonsense-human-input');
-  if (!normal || !nonsense) {
-    return {
-      available: false,
-      normalHumanVotes: normal?.humanVotesReceived ?? 0,
-      nonsenseHumanVotes: nonsense?.humanVotesReceived ?? 0,
-      reasonAwarenessHits: nonsense?.reasonAwarenessHits ?? 0,
-      note: 'Not Available. Requires both canonical cases.',
-    };
-  }
+  const normalCases = cases.filter((item) => item.caseId === 'normal-human-input' && item.completed);
+  const nonsenseCases = cases.filter((item) => item.caseId === 'nonsense-human-input' && item.completed);
+  const normalHumanVotes = sum(normalCases.map((item) => item.firstBallotHumanVotes));
+  const normalAiVotes = sum(normalCases.map((item) => item.firstBallotAiVotes));
+  const nonsenseHumanVotes = sum(nonsenseCases.map((item) => item.firstBallotHumanVotes));
+  const nonsenseAiVotes = sum(nonsenseCases.map((item) => item.firstBallotAiVotes));
+  const reasonAwarenessHits = sum(nonsenseCases.map((item) => item.firstBallotReasonAwarenessHits));
+  const normalHumanVoteRate = ratio(normalHumanVotes, normalAiVotes);
+  const nonsenseHumanVoteRate = ratio(nonsenseHumanVotes, nonsenseAiVotes);
+  const voteRateLift = round(nonsenseHumanVoteRate - normalHumanVoteRate);
+  const available = normalCases.length > 0 && nonsenseCases.length > 0 && normalAiVotes > 0 && nonsenseAiVotes > 0;
+  const passed = available && nonsenseHumanVoteRate >= 0.5 && voteRateLift >= 0.25 && reasonAwarenessHits > 0;
+
   return {
-    available: true,
-    normalHumanVotes: normal.humanVotesReceived,
-    nonsenseHumanVotes: nonsense.humanVotesReceived,
-    reasonAwarenessHits: nonsense.reasonAwarenessHits,
-    note: 'Compare whether nonsense human input changes suspicion and vote reasons.',
+    available,
+    normalHumanVotes,
+    normalAiVotes,
+    normalHumanVoteRate,
+    nonsenseHumanVotes,
+    nonsenseAiVotes,
+    nonsenseHumanVoteRate,
+    voteRateLift,
+    reasonAwarenessHits,
+    passed,
+    note: available
+      ? 'Acceptance requires nonsense vote rate >= 50%, lift over normal >= 25 percentage points, and an explicit abnormal-input reason.'
+      : 'Not Available. Requires completed Normal and Nonsense cases with first-ballot AI votes.',
   };
 }
 
+function sum(values: readonly number[]): number {
+  return values.reduce((total, value) => total + value, 0);
+}
+
 function reasonMentionsHumanInput(vote: Vote): boolean {
-  return /人类|玩家|描述|表达|敷衍|无关|信息|异常|奇怪|落差|矛盾|自然感/.test(vote.reason);
+  return /人类|玩家|描述|表达|敷衍|无关|信息|异常|奇怪|落差|矛盾|自然感|数字|序列|随机|无意义|胡言|有效线索/.test(vote.reason);
 }
 /** 统计终局前公共玩家 DTO 中意外出现的 role/word/revealedRole/revealedWord 字段，用于零容忍门禁。 */
 function countPublicStateLeaks(game: PublicGameState): number {

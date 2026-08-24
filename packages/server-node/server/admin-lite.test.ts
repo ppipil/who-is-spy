@@ -168,7 +168,7 @@ describe('Admin Lite trace API', () => {
     const { app } = createApp(new FakeGameModel());
     const caseOptions = await request(app).get('/api/admin/evaluation/cases').expect(200);
     expect(caseOptions.body.fixtureWords).toEqual(['雨伞', '雨衣']);
-    expect(caseOptions.body).toMatchObject({ defaultRounds: 1, maxRounds: 5, provider: { model: expect.any(String), configured: expect.any(Boolean), envProxyEnabled: expect.any(Boolean) } });
+    expect(caseOptions.body).toMatchObject({ codeVersion: expect.any(String), defaultRounds: 1, maxRounds: 5, provider: { model: expect.any(String), configured: expect.any(Boolean), envProxyEnabled: expect.any(Boolean) } });
     expect(caseOptions.body.cases.map((item: { humanDescription: string }) => item.humanDescription)).toEqual(expect.arrayContaining(['可以防止身体被淋湿。', '一一二二，哈哈嘿嘿。']));
 
     const response = await request(app)
@@ -187,11 +187,19 @@ describe('Admin Lite trace API', () => {
       .expect(201);
 
     expect(response.body.report.status).toBe('PASS');
+    expect(response.body.report.codeVersion).toBe(caseOptions.body.codeVersion);
     expect(response.body.report.source).toBe('local');
     expect(response.body.report.title).toContain('Fake');
     expect(response.body.report.cases).toHaveLength(4);
     expect(response.body.report.deterministic.metrics.startedGames).toBe(4);
-    expect(response.body.report.deterministic.metrics.humanInputResponsiveness.available).toBe(true);
+    expect(response.body.report.deterministic.metrics.humanInputResponsiveness).toMatchObject({
+      available: true,
+      normalHumanVoteRate: 0,
+      nonsenseHumanVoteRate: 1,
+      voteRateLift: 1,
+      reasonAwarenessHits: 8,
+      passed: true,
+    });
     expect(response.body.report.deterministic.cases.filter((item: { humanDescription: string }) => item.humanDescription === '下雨天常见的随身用品。')).toHaveLength(2);
     expect(response.body.report.judge.status).toBe('unavailable');
 

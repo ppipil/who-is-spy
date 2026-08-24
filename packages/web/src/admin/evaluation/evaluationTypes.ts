@@ -12,6 +12,7 @@ export interface EvaluationCaseOption {
 export interface EvaluationCasesResponse {
   cases: EvaluationCaseOption[];
   fixtureWords: [string, string];
+  codeVersion: string;
   defaultRounds: number;
   maxRounds: number;
   provider: { model: string; configured: boolean; envProxyEnabled: boolean };
@@ -45,8 +46,14 @@ export interface EvaluationMetrics {
   humanInputResponsiveness?: {
     available: boolean;
     normalHumanVotes: number;
+    normalAiVotes?: number;
+    normalHumanVoteRate?: number;
     nonsenseHumanVotes: number;
+    nonsenseAiVotes?: number;
+    nonsenseHumanVoteRate?: number;
+    voteRateLift?: number;
     reasonAwarenessHits: number;
+    passed?: boolean;
     note: string;
   };
   latencyMs: { p50: number; p95: number };
@@ -94,6 +101,7 @@ export interface EvaluationReport {
   model: EvaluationModel;
   cases: EvaluationCaseOption[];
   durationMs: number;
+  codeVersion?: string;
   evidenceUrl?: string;
   archivedEvidence?: ArchivedEvaluationEvidence;
   deterministic?: {
@@ -106,6 +114,9 @@ export interface EvaluationReport {
       humanVotesReceived: number;
       totalAiVotes: number;
       reasonAwarenessHits: number;
+      firstBallotHumanVotes?: number;
+      firstBallotAiVotes?: number;
+      firstBallotReasonAwarenessHits?: number;
       descriptions: EvaluationCaseEvidence[];
       votes: EvaluationVoteEvidence[];
       error?: string;
