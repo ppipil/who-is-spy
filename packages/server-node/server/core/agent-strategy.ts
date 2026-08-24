@@ -37,6 +37,10 @@ export interface PersonaPolicy {
 }
 
 // Role Objective 决定“作为平民/卧底怎样赢”，与 Persona 无关，所有 Persona 共用同一份。
+/**
+ * 根据阵营和阶段生成“如何赢”的身份目标。
+ * 它刻意不包含 Persona 风格：role objective 决定目标，Persona 决定观察角度和表达方式，避免人设覆盖安全与阵营规则。
+ */
 export function buildRoleObjective(input: { role: Role; phase: 'describing' | 'voting' }): string {
   if (input.role === 'undercover') {
     return input.phase === 'describing'
@@ -49,6 +53,9 @@ export function buildRoleObjective(input: { role: Role; phase: 'describing' | 'v
 }
 
 // Persona Policy 决定“怎么看、说多少、怎么说、怎么投”，不包含身份分支。
+// 单一策略注册表同时驱动描述提示、投票提示和质量重试预算，避免只保存一个“不生效的人设字符串”。
+// 0.72 是工程启发式的 bigram Dice 雷同阈值：用于拦截近似复述，同时给不同观察角度留空间；
+// 它由回归测试固定，不应被解释成统计学最优值，真实模型样本变化后应重新校准。
 const STRATEGIES: Record<AgentStrategyId, AgentStrategy> = {
   cautious: {
     id: 'cautious',
@@ -112,10 +119,12 @@ const STRATEGIES: Record<AgentStrategyId, AgentStrategy> = {
   },
 };
 
+/** 通过类型受限的 strategyId 取得唯一策略配置，避免 GameEngine 按玩家姓名或任意字符串分支。 */
 export function getAgentStrategy(id: AgentStrategyId): AgentStrategy {
   return STRATEGIES[id];
 }
 
+/** 返回完整策略注册表，供测试、评测和管理界面枚举；行为真源仍是同一份 STRATEGIES。 */
 export function listAgentStrategies(): AgentStrategy[] {
   return Object.values(STRATEGIES);
 }

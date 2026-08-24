@@ -99,7 +99,9 @@ describe('prompt policy', () => {
     process.env.PROMPT_TRACE_DEBUG = '1';
     process.env.PROMPT_TRACE_JSONL = tempFile;
     try {
-      const prompt = buildDescribePrompt(context('cautious', 'civilian'));
+      const testContext = context('cautious', 'civilian');
+      testContext.game.publicDescriptions[0]!.text = '这段公开文本把地铁嵌在句子里';
+      const prompt = buildDescribePrompt(testContext);
       recordPromptDebug(prompt);
       const lines = fs
         .readFileSync(tempFile, 'utf8')

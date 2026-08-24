@@ -48,6 +48,7 @@ function EventSection({ event }: { event: Record<string, unknown> }) {
         <Row label="尝试" value={field(event.attempt)} />
         <Row label="结果" value={field(event.outcome)} />
         <Row label="错误类型 errorType" value={field(event.errorType)} />
+        <Row label="故障来源" value={event.injectedFault ? 'Fault Injection（人工模拟）' : '—'} />
         <Row label="重试" value={retryLabel(event)} />
         <Row label="延迟" value={latencyLabel(event.latencyMs)} />
         <Row label="恢复" value={recoveryLabel(event)} />

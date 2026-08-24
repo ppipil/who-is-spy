@@ -28,7 +28,6 @@ import { chooseWordPair } from './words.js';
 export interface CreateGameOptions {
   wordPair?: readonly [string, string];
   descriptionSecretPolicy?: DescriptionSecretPolicy;
-  traceFixtureWords?: readonly string[];
 }
 
 const AI_PROFILES = [
@@ -70,7 +69,6 @@ export class GameEngine {
   private readonly descriptionResume = new Map<string, DescriptionResumeState>();
   private readonly descriptionGenerationActive = new Set<string>();
   private readonly descriptionSecretPolicies = new Map<string, DescriptionSecretPolicy>();
-  private readonly traceFixtureWords = new Map<string, string[]>();
   private readonly traceSink?: TraceSink;
 
   constructor(
@@ -110,7 +108,6 @@ export class GameEngine {
     });
     const id = randomUUID();
     this.descriptionSecretPolicies.set(id, options.descriptionSecretPolicy ?? 'own_word_characters');
-    if (options.traceFixtureWords) this.traceFixtureWords.set(id, [...options.traceFixtureWords]);
     const game: GameState = {
       id,
       phase: 'describing',
@@ -141,7 +138,6 @@ export class GameEngine {
       modelKind: this.traceOrigin.modelKind,
       status: 'running',
       createdAt: new Date(game.createdAt).toISOString(),
-      ...(this.traceFixtureWords.get(id) ? { fixtureWords: this.traceFixtureWords.get(id) } : {}),
     });
     return this.toPublic(game);
   }
@@ -159,6 +155,11 @@ export class GameEngine {
     return () => this.progressListeners.delete(listener);
   }
 
+  /**
+   * 接收人类本轮描述并驱动整个描述阶段。
+   * 先校验阶段、存活、长度、泄密和重复提交；校验通过后才公开人类描述，随后串行生成剩余 AI 描述。
+   * 任一 AI 最终失败时不会进入投票，已成功公开的前缀会保留，供 resumeDescription 从断点继续。
+   */
   async submitHumanDescription(id: string, text: string): Promise<PublicGameState> {
     const game = this.requireGame(id);
     this.assertPhase(game, 'describing');
@@ -232,6 +233,11 @@ export class GameEngine {
     return this.toPublic(game);
   }
 
+  /**
+   * 手动恢复一次停在 describing 的生成流程。
+   * 它从本轮第一个缺失 Agent 开始，不重跑已提交发言；同时用 active set 防并发恢复，并限制每个失败点的手动预算。
+   * 全部缺失描述补齐后才进入 voting；再次失败则保留一致状态并更新恢复计数。
+   */
   async resumeDescription(id: string): Promise<PublicGameState> {
     const game = this.requireGame(id);
     this.assertPhase(game, 'describing');
@@ -299,6 +305,10 @@ export class GameEngine {
     return this.toPublic(game);
   }
 
+  /**
+   * 描述生成的并发保护外壳。
+   * 同一局同一时刻只允许一条生成链运行；失败时登记首个缺失 Agent 和恢复预算，finally 中必定释放锁。
+   */
   private async runDescriptionGeneration(game: GameState): Promise<void> {
     if (this.descriptionGenerationActive.has(game.id)) {
       throw new GameRuleError('已有生成请求进行中，请稍候', 409);
@@ -322,11 +332,18 @@ export class GameEngine {
     }
   }
 
+  /**
+   * 串行编排本轮尚未发言的 AI，是“后发者可见前序公开描述”的核心函数。
+   * 每次循环都基于最新 GameState 构造隔离 AgentContext，再按 Persona 重试预算调用模型和质量门禁。
+   * 只有通过长度、泄密、雷同检查的文本才会立即提交；预算耗尽则抛错，失败文本不污染公开状态。
+   */
   private async generateDescriptions(game: GameState): Promise<Description[]> {
     const agents = this.pendingDescriptionAgents(game);
     const outputs: Description[] = [];
     const allSecrets = [...new Set(game.players.map((player) => player.word))];
     const secretPolicy = this.descriptionSecretPolicies.get(game.id) ?? 'own_word_characters';
+    // 描述必须串行生成：每次循环都基于最新 GameState 重建隔离上下文；若改成 Promise.all，
+    // 四个 Agent 会拿到同一份旧前缀，后发者就看不到同轮先发者刚公开的描述。
     for (const agent of agents) {
       const context = buildAgentContext(game, agent);
       const strategy = getAgentStrategy(context.identity.strategyId);
@@ -335,6 +352,7 @@ export class GameEngine {
         .map((description) => description.text);
       let violation: DescriptionQualityViolation | undefined;
       let acceptedText: string | undefined;
+      // 质量失败只重试当前 Agent，并把 violation 转成修复提示；在 acceptedText 产生前不推进状态。
       for (let attempt = 1; attempt <= strategy.qualityPolicy.maxDescriptionAttempts; attempt += 1) {
         const text = normalizeDescription(
           await this.model.describe(context, {
@@ -384,12 +402,17 @@ export class GameEngine {
         );
       }
       const description = { playerId: agent.id, text: acceptedText, round: game.round };
+      // 先提交再进入下一次循环，是“逐步公开”成立的关键顺序。
       this.commitDescription(game, description);
       outputs.push(description);
     }
     return outputs;
   }
 
+  /**
+   * 计算本轮仍缺描述的存活 AI。
+   * 该集合同时服务首次生成和断点恢复，确保恢复只补缺口，不重复调用已经成功的 Agent。
+   */
   private pendingDescriptionAgents(game: GameState): Player[] {
     const describedPlayerIds = new Set(
       game.descriptions.filter((description) => description.round === game.round).map((description) => description.playerId),
@@ -419,7 +442,13 @@ export class GameEngine {
     });
   }
 
+  /**
+   * 将一条已验收描述原子地提升为公开事实。
+   * 同步更新 descriptions、公共事件、trace 和 SSE 进度；调用完成后，下一位 Agent 重建上下文即可看到它。
+   * 此函数不做质量判断，调用方必须先通过 DescriptionQualityGate。
+   */
   private commitDescription(game: GameState, description: Description): void {
+    // 只有通过长度、泄密和雷同门禁的文本才能进入公开事实源。
     game.descriptions.push(description);
     const event: GameState['events'][number] = {
       id: randomUUID(),
@@ -452,6 +481,10 @@ export class GameEngine {
     });
   }
 
+  /**
+   * 在所有存活玩家完成本轮描述后切换到 voting。
+   * 写入公开阶段事件、计算投票候选约束，并启动 AI 私有投票预取；描述未齐时不得调用。
+   */
   private enterVoting(game: GameState): void {
     game.phase = 'voting';
     game.ballot = 1;
@@ -476,6 +509,10 @@ export class GameEngine {
     this.prefetchAiVotes(game);
   }
 
+  /**
+   * 提前生成当前 ballot 的 AI 私有候选票以隐藏等待时间。
+   * 预取结果带 game/round/ballot/eligibleTargetIds 快照；失败只清缓存，不写入 GameState。
+   */
   private prefetchAiVotes(game: GameState): void {
     if (game.phase !== 'voting') return;
     const existing = this.pendingAiVotes.get(game.id);
@@ -495,6 +532,10 @@ export class GameEngine {
     this.pendingAiVotes.set(game.id, pending);
   }
 
+  /**
+   * 消费与当前投票快照完全匹配的预取结果。
+   * 缓存缺失或过期时现场重算；整批失败直接抛出，因此不会提交半批 AI 票。
+   */
   private async consumePendingAiVotes(game: GameState): Promise<Vote[]> {
     const pending = this.pendingAiVotes.get(game.id);
     if (!pending || !this.matchesPendingVotes(pending, game)) return this.generateVotes(game);
@@ -504,6 +545,7 @@ export class GameEngine {
     return result.votes;
   }
 
+  /** 校验预取票是否仍属于当前局、轮次、ballot 和候选集合，防止消费过期异步结果。 */
   private matchesPendingVotes(pending: PendingAiVotes, game: GameState): boolean {
     const eligible = game.eligibleTargetIds ? [...game.eligibleTargetIds] : null;
     return pending.gameId === game.id
@@ -516,6 +558,10 @@ export class GameEngine {
     for (const listener of this.progressListeners) listener(event);
   }
 
+  /**
+   * 并行生成全部存活 AI 的私有候选票。
+   * 每个 voter 只拿自己的隔离上下文和合法目标；Promise.all 保证要么得到完整批次，要么整批失败。
+   */
   private async generateVotes(game: GameState): Promise<Vote[]> {
     const voters = game.players.filter((player) => !player.isHuman && player.alive);
     return Promise.all(
@@ -533,6 +579,10 @@ export class GameEngine {
     );
   }
 
+  /**
+   * 以服务端权威规则结算一批完整票。
+   * 负责计票、平票加票、淘汰、胜负判定、下一轮推进和终局复盘；模型只提候选，不能决定状态转换。
+   */
   private async resolveBallot(game: GameState, votes: Vote[]): Promise<void> {
     this.recordVoteTrace(game, votes);
     const counts = new Map<string, number>();
@@ -581,7 +631,6 @@ export class GameEngine {
         modelKind: this.traceOrigin.modelKind,
         status: 'completed',
         createdAt: new Date().toISOString(),
-        ...(this.traceFixtureWords.get(game.id) ? { fixtureWords: this.traceFixtureWords.get(game.id) } : {}),
       });
       return;
     }
@@ -622,6 +671,10 @@ export class GameEngine {
     return null;
   }
 
+  /**
+   * 生成终局复盘。
+   * 优先调用模型；若 provider 重试仍失败，则返回本地确定性 fallback 并记录 fallback trace，避免已完成对局因复盘失败而悬空。
+   */
   private async createReview(game: GameState): Promise<GameReview> {
     try {
       return await this.model.review(game);
@@ -669,6 +722,10 @@ export class GameEngine {
     }
   }
 
+  /**
+   * 将服务端完整状态投影成客户端 DTO。
+   * 终局前只给人类自己的 role/word，其他玩家不含秘密字段；只有 finished 后才附 revealedRole/revealedWord。
+   */
   private toPublic(game: GameState): PublicGameState {
     const finished = game.phase === 'finished';
     const human = this.human(game);
@@ -745,6 +802,7 @@ function normalizeText(text: string): string {
   return text.trim().replace(/\s+/g, ' ');
 }
 
+/** 在写公开理由或 trace 前替换完整密词；按长度降序处理，避免短词先替换破坏长词匹配。 */
 export function redactSecretWords(text: string, secrets: readonly string[]): string {
   return [...new Set(secrets)].reduce((value, secret) => secret.length > 0 ? value.split(secret).join('[SECRET]') : value, text);
 }

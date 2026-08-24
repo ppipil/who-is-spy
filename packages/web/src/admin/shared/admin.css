@@ -78,3 +78,6 @@
   background: #2f2418;
   color: #fff7ed;
 }
+.admin-page[hidden] {
+  display: none;
+}

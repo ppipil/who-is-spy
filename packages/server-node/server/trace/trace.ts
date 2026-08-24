@@ -46,8 +46,8 @@ export interface TraceRunMetadata {
   gameId?: string;
   targetAgent?: string;
   faultType?: string;
+  scenarioOutcome?: string;
   entrypoint?: TraceEntrypoint;
-  fixtureWords?: string[];
 }
 
 export interface ModelCallTraceEvent {
@@ -196,8 +196,8 @@ export interface TraceRunLifecycleEvent {
   scenario?: string;
   targetAgent?: string;
   faultType?: string;
+  scenarioOutcome?: string;
   entrypoint?: TraceEntrypoint;
-  fixtureWords?: string[];
 }
 
 export type RuntimeTraceEvent =
@@ -285,6 +285,10 @@ export class CompositeTraceSink implements TraceSink {
   }
 }
 
+/**
+ * 用装饰器给任意 TraceSink 统一盖上 sourceType、entrypoint、modelKind 和可选 runId。
+ * 业务生产者无需重复传来源字段，也避免同一运行中的事件被错误归类到不同来源。
+ */
 export function stampTraceOrigin(sink: TraceSink, origin: TraceOrigin): TraceSink {
   return {
     record(event) {
@@ -299,6 +303,10 @@ export function stampTraceOrigin(sink: TraceSink, origin: TraceOrigin): TraceSin
   };
 }
 
+/**
+ * 写入或更新一条运行生命周期事件，用 running/completed/failed 串起同一 runId。
+ * metadata 只包含运行定位与场景信息，不接受密词、API Key 或完整 Prompt。
+ */
 export function recordTraceRun(sink: TraceSink | undefined, metadata: TraceRunMetadata): void {
   sink?.record({
     eventType: 'trace_run',
@@ -312,8 +320,8 @@ export function recordTraceRun(sink: TraceSink | undefined, metadata: TraceRunMe
     ...(metadata.scenario ? { scenario: metadata.scenario } : {}),
     ...(metadata.targetAgent ? { targetAgent: metadata.targetAgent } : {}),
     ...(metadata.faultType ? { faultType: metadata.faultType } : {}),
+    ...(metadata.scenarioOutcome ? { scenarioOutcome: metadata.scenarioOutcome } : {}),
     ...(metadata.entrypoint ? { entrypoint: metadata.entrypoint } : {}),
-    ...(metadata.fixtureWords ? { fixtureWords: metadata.fixtureWords } : {}),
   });
 }
 
@@ -331,8 +339,8 @@ export function listTraceRuns(events: readonly RuntimeTraceEvent[]): TraceRunMet
       ...(event.scenario ? { scenario: event.scenario } : {}),
       ...(event.targetAgent ? { targetAgent: event.targetAgent } : {}),
       ...(event.faultType ? { faultType: event.faultType } : {}),
+      ...(event.scenarioOutcome ? { scenarioOutcome: event.scenarioOutcome } : {}),
       ...(event.entrypoint ? { entrypoint: event.entrypoint } : {}),
-      ...(event.fixtureWords ? { fixtureWords: event.fixtureWords } : {}),
     });
   }
   return [...byRunId.values()].sort((left, right) => right.createdAt.localeCompare(left.createdAt));
@@ -345,6 +353,10 @@ export function filterTraceEventsByRun(events: readonly RuntimeTraceEvent[], run
 export function filterTraceEventsByCase(events: readonly RuntimeTraceEvent[], runId: string, gameId: string): RuntimeTraceEvent[] {
   return events.filter((event) => event.gameId === gameId && event.runId === runId);
 }
+/**
+ * 创建 Admin Console 使用的可查询 trace store。
+ * ADMIN_TRACE_JSONL=0/off/memory 时只存内存，否则持久化到配置路径或默认 JSONL；两种实现共享同一事件 schema。
+ */
 export function createAdminRuntimeTraceSink(): TraceEventStore {
   const configuredPath = process.env.ADMIN_TRACE_JSONL;
   if (configuredPath === '0' || configuredPath === 'off' || configuredPath === 'memory') return new InMemoryTraceSink();
@@ -393,6 +405,10 @@ export function formatTraceLine(event: RuntimeTraceEvent): string {
   return `#${event.sequence} 第${event.round}轮 ${phaseLabel(event.phase)} · ${icon} ${actor} ${event.task} #${event.attempt}${error}${injected} ${event.latencyMs}ms${retry}`;
 }
 
+/**
+ * 按 sequence 回放单局关键决策链。
+ * 回放聚焦公开状态推进、模型成功/失败、自动重试和手动恢复；Prompt provenance 被刻意省略，避免回放变成 Prompt 泄漏渠道。
+ */
 export function replayTrace(
   events: readonly RuntimeTraceEvent[],
   gameId: string,
@@ -527,6 +543,10 @@ function publicEventLabel(type: string): string {
   return labels[type] ?? type;
 }
 
+/**
+ * 容错读取 JSONL trace：逐行解析并只保留满足基础事件形状的记录。
+ * 文件不存在或单行损坏不会阻断服务启动；返回结果供持久化 sink 续接 sequence。
+ */
 export function readJsonlTrace(filePath: string): RuntimeTraceEvent[] {
   if (!fs.existsSync(filePath)) return [];
   return fs

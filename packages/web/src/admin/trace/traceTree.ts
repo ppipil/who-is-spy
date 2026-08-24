@@ -33,8 +33,11 @@ function buildRun(runId: string, events: RuntimeEvent[]): TraceRunRow {
     status: normalizeStatus(lifecycle?.status, sorted, times),
     createdAt: String(lifecycle?.createdAt ?? (times[0] ? new Date(times[0]).toISOString() : new Date().toISOString())),
     modelKind: topValue(sorted.map((event) => event.modelKind)),
+    scenario: typeof lifecycle?.scenario === 'string' ? lifecycle.scenario : undefined,
+    faultType: typeof lifecycle?.faultType === 'string' ? lifecycle.faultType : undefined,
+    targetAgent: typeof lifecycle?.targetAgent === 'string' ? lifecycle.targetAgent : undefined,
+    scenarioOutcome: typeof lifecycle?.scenarioOutcome === 'string' ? lifecycle.scenarioOutcome : undefined,
     durationMs: duration(sorted, times),
-    fixtureWords: Array.isArray(lifecycle?.fixtureWords) ? lifecycle.fixtureWords.map(String) : undefined,
     events: sorted,
   };
 }
@@ -67,7 +70,7 @@ export function buildTimeline(run: TraceRunRow, prompts: PromptTraceRecord[]): T
 
 function roundNode(run: TraceRunRow, round: number, prompts: PromptTraceRecord[]): TimelineNode {
   const events = run.events.filter((event) => Number(event.round) === round);
-  const children = [...descriptionActions(events, prompts), voteAction(events, prompts), judgeAction(events, prompts), ...standaloneEvents(events)].filter(Boolean) as TimelineNode[];
+  const children = [...descriptionActions(events, prompts), voteAction(events, prompts), reviewAction(events, prompts), judgeAction(events, prompts), ...standaloneEvents(events)].filter(Boolean) as TimelineNode[];
   return node(`round-${run.runId}-${round}`, 'round', `第 ${round} 轮`, childStatus(children), [], children, events);
 }
 
@@ -84,6 +87,13 @@ function voteAction(events: RuntimeEvent[], prompts: PromptTraceRecord[]): Timel
   if (related.length === 0) return null;
   const children = related.flatMap((event) => eventToNodes(event, prompts));
   return node(`vote-${events[0]?.gameId}-${events[0]?.round}`, 'action', `第 ${events[0]?.round} 轮 · 投票`, childStatus(children), [], children, related);
+}
+
+function reviewAction(events: RuntimeEvent[], prompts: PromptTraceRecord[]): TimelineNode | null {
+  const related = events.filter((event) => event.task === 'review');
+  if (related.length === 0) return null;
+  const children = related.flatMap((event) => eventToNodes(event, prompts));
+  return node(`review-${events[0]?.gameId}-${events[0]?.round}`, 'action', '终局复盘 Review', childStatus(children), [], children, related);
 }
 
 function judgeAction(events: RuntimeEvent[], prompts: PromptTraceRecord[]): TimelineNode | null {
@@ -108,12 +118,27 @@ function eventToNodes(event: RuntimeEvent, prompts: PromptTraceRecord[]): Timeli
 
 function withRetry(base: TimelineNode, event: RuntimeEvent): TimelineNode[] {
   if (event.outcome !== 'failure' || !event.willRetry) return [base];
-  return [base, node(`retry-${event.sequence}`, 'retry', '已安排重试', 'warn', [{ label: '退避', value: '600ms' }], [], [event])];
+  return [base, node(`retry-${event.sequence}`, 'retry', '已安排自动重试', 'warn', [{ label: '依据', value: 'retryable=true' }], [], [event])];
 }
 
 function modelNode(event: RuntimeEvent, prompts: PromptTraceRecord[]): TimelineNode {
   const prompt = findPrompt(event, prompts);
-  return node(`model-${event.sequence}`, 'model', `${labelAgent(event.agentId)} · ${taskLabel(event.task)}`, statusOf(event.outcome), modelMeta(event), prompt ? [promptNode(event, [prompt])] : [], [event], prompt);
+  return node(`model-${event.sequence}`, 'model', modelTitle(event), statusOf(event.outcome), modelMeta(event), prompt ? [promptNode(event, [prompt])] : [], [event], prompt);
+}
+
+function modelTitle(event: RuntimeEvent): string {
+  const attempt = `Attempt #${String(event.attempt ?? 1)}`;
+  if (event.outcome === 'failure') return `${attempt} · 失败 · ${errorTitle(event.errorType)}`;
+  if (event.outcome === 'fallback') return 'Fallback · 本地复盘';
+  return `${attempt} · 成功`;
+}
+
+function errorTitle(value: unknown): string {
+  if (value === 'timeout') return '请求超时';
+  if (value === 'invalid_json') return 'JSON 无法解析';
+  if (value === 'provider_5xx') return 'Provider 服务异常';
+  if (value === 'rate_limit') return '请求被限流';
+  return String(value ?? '未知错误');
 }
 
 function taskLabel(value: unknown): string {

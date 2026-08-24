@@ -34,6 +34,7 @@ export function RunExplorer({ runs, selectedRunId, filters, loading, onFilters, 
             <span className={`trace-badge ${run.status}`}>{statusLabel(run.status)}</span>
             <strong>{run.runId.slice(0, 12)}</strong>
             <small>{sourceLabel(run.sourceType)} · {formatDuration(run.durationMs)}</small>
+            {run.scenario && <small>{run.scenario} · {run.faultType ?? 'fault'} · {run.scenarioOutcome ?? 'running'}</small>}
           </button>
         ))}
         {runs.length === 0 && <p className="admin-empty">暂无追踪运行。先开一局游戏，然后刷新。</p>}
@@ -53,6 +54,7 @@ function statusLabel(status: TraceRunRow['status']): string {
 function sourceLabel(sourceType: string): string {
   if (sourceType === 'USER_GAME') return '网页对局';
   if (sourceType === 'EVAL_RUN') return '评测来源';
+  if (sourceType === 'FAULT_RUN') return '故障演示';
   return '终端脚本';
 }
 
@@ -64,6 +66,7 @@ function SourceFilter({ value, onChange }: { value: string; onChange: (value: st
         <option value="">全部来源</option>
         <option value="USER_GAME">网页对局</option>
         <option value="EVAL_RUN">评测来源</option>
+        <option value="FAULT_RUN">故障演示</option>
         <option value="TERMINAL_SCRIPT">终端脚本</option>
       </select>
     </label>

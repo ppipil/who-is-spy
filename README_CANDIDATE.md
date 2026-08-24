@@ -14,7 +14,7 @@ The first post-baseline code change makes the official contract runner launch it
 
 ## Multi-Agent strategy
 
-Implemented strategies are `cautious`, `intuitive`, `analytical`, and `contrarian`. Description guidance, vote evidence organization, and quality policy live behind a registry-backed interface rather than player-name branches in `GameEngine`. Strategy IDs enter the allowlisted Agent context and evaluation dimensions; trace aggregation will use the same ID. Deterministic evidence and limitations are in `docs/ARCHITECTURE.md`.
+Implemented strategies are `cautious`, `intuitive`, `analytical`, and `contrarian`. Description guidance, vote evidence organization, and quality policy live behind a registry-backed interface rather than player-name branches in `GameEngine`. Strategy IDs enter the allowlisted Agent context and evaluation dimensions; trace aggregation uses the same ID. Current implementation evidence, tradeoffs, and limitations are in `docs/AGENT_DESIGN_AUDIT.md`.
 
 ## Description and voting orchestration
 

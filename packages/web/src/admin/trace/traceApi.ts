@@ -1,4 +1,4 @@
-import type { AdminStatus, PromptTraceRecord, RuntimeEvent, TraceFilters } from './traceTypes';
+import type { AdminStatus, PromptTraceRecord, RuntimeEvent, TraceFilters, TraceRunSummary } from './traceTypes';
 
 async function adminRequest<T>(path: string): Promise<T> {
   const response = await fetch(path, { headers: { 'Content-Type': 'application/json' } });
@@ -16,6 +16,8 @@ function queryString(params: object): string {
 
 export const traceApi = {
   status: () => adminRequest<AdminStatus>('/api/admin/status'),
+  runs: (filters: TraceFilters) =>
+    adminRequest<{ count: number; runs: TraceRunSummary[] }>(`/api/admin/trace-runs${queryString(filters)}`),
   traces: (filters: TraceFilters) =>
     adminRequest<{ count: number; events: RuntimeEvent[] }>(`/api/admin/traces${queryString(filters)}`),
   promptTraces: (filters: TraceFilters) =>

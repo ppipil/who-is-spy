@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { z } from 'zod';
 import { createAdminEvaluationRouter } from './admin/evaluation-routes.js';
+import { createAdminFaultRouter } from './admin/fault-routes.js';
 import { createAdminTraceRouter } from './admin/trace-routes.js';
 import { DescriptionQualityError } from './core/description-quality.js';
 import { GameEngine, GameRuleError } from './core/game-engine.js';
@@ -121,6 +122,7 @@ export function createApp(model: GameModel = new DeepSeekClient()) {
   if (adminConsoleEnabled) {
     app.use('/api/admin', createAdminTraceRouter({ model, runtimeTrace, promptTraceRecords }));
     app.use('/api/admin', createAdminEvaluationRouter(model, runtimeTrace));
+    app.use('/api/admin', createAdminFaultRouter(runtimeTrace));
   } else {
     app.use('/api/admin', (_request, response) => response.status(404).json({ error: 'admin console disabled' }));
   }

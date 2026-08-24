@@ -42,6 +42,10 @@ export class FaultInjectingModel implements GameModel {
     return this.withFaults('review', game, () => this.delegate.review(game));
   }
 
+  /**
+   * 在 FakeGameModel 外包一层两次尝试的确定性故障调度。
+   * 指定 attempt 命中 FaultSpec 时先写失败 trace，再按 retryable 决定继续或抛错；未命中则调用真实 delegate。
+   */
   private async withFaults<T>(
     task: ModelTask,
     context: AgentContext | GameState,
@@ -54,7 +58,7 @@ export class FaultInjectingModel implements GameModel {
       if (fault) {
         const diagnostic = diagnosticForFault(fault.faultType, attempt);
         const willRetry = diagnostic.retryable && attempt < maxAttempts;
-        this.trace(context, task, attempt, diagnostic, willRetry, 'failure');
+        this.trace(context, task, attempt, diagnostic, willRetry, 'failure', fault);
         lastError = new ModelError(`故障注入：${fault.faultType}`, undefined, diagnostic);
         if (!willRetry) throw lastError;
         continue;
@@ -66,6 +70,7 @@ export class FaultInjectingModel implements GameModel {
     throw lastError ?? new ModelError('故障注入失败');
   }
 
+  /** 按 task、agentId、round、attempt 精确匹配一次性故障；consumedFaults 保证同一 spec 不会重复触发。 */
   private matchFault(task: ModelTask, context: AgentContext | GameState, attempt: number): FaultSpec | undefined {
     const agentId = 'identity' in context ? context.identity.playerId : 'review';
     const round = 'identity' in context ? context.game.round : context.round;
@@ -82,6 +87,7 @@ export class FaultInjectingModel implements GameModel {
     return this.faults[index];
   }
 
+  /** 写入与真实 DeepSeekClient 同结构的 model_call trace，并附 injectedFault，便于 UI 区分模拟故障和真实故障。 */
   private trace(
     context: AgentContext | GameState,
     task: ModelTask,
@@ -89,6 +95,7 @@ export class FaultInjectingModel implements GameModel {
     diagnostic: ModelDiagnostic | undefined,
     willRetry: boolean,
     outcome: 'success' | 'failure',
+    injectedFault?: FaultSpec,
   ): void {
     if (!this.traceSink) return;
     const isGame = 'players' in context;
@@ -108,10 +115,20 @@ export class FaultInjectingModel implements GameModel {
       latencyMs: 0,
       willRetry,
       outcome,
+      ...(injectedFault ? { injectedFault: {
+        agentId: injectedFault.agentId,
+        faultType: injectedFault.faultType,
+        round: injectedFault.round,
+        attempt: injectedFault.attempt,
+      } } : {}),
     });
   }
 }
 
+/**
+ * 将可读场景名映射成固定 FaultSpec 列表。
+ * 场景是 allowlist，保证演示可复现且只能在预定 Agent/轮次/attempt 注入，不接受任意运行时代码。
+ */
 export function scenarioFaults(name: string): FaultSpec[] {
   const scenarios: Record<string, FaultSpec[]> = {
     'describe-timeout': [{ task: 'describe', agentId: 'ai-2', round: 1, attempt: 1, faultType: 'timeout' }],

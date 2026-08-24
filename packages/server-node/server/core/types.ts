@@ -114,6 +114,7 @@ export interface PublicPhaseProgressEvent {
 export type PublicProgressEvent = PublicDescriptionProgressEvent | PublicPhaseProgressEvent;
 
 export interface AgentContext {
+  // 当前 Agent 的私有视图；role/word 不得从这里扩展成其他玩家列表。
   identity: {
     playerId: string;
     name: string;
@@ -121,6 +122,7 @@ export interface AgentContext {
     role: Role;
     word: string;
   };
+  // 对局公开视图。这里故意不接受 Player[]，以便在类型层阻止其他玩家密词和身份下沉到模型层。
   game: {
     gameId: string;
     round: number;

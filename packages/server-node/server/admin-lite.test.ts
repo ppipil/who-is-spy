@@ -56,6 +56,13 @@ class FiveDimensionJudgeFakeModel extends FakeGameModel {
   }
 }
 
+class SensitiveOutputJudgeModel extends FiveDimensionJudgeFakeModel {
+  protected responseFor(dimension: FixtureJudgeDimension): unknown {
+    const response = super.responseFor(dimension) as Record<string, unknown>;
+    return { ...response, evidence: dimension + ' 的公开证据误提雨伞，应在 Trace 中脱敏。' };
+  }
+}
+
 class EnglishSemanticJudgeModel extends FiveDimensionJudgeFakeModel {
   protected responseFor(dimension: FixtureJudgeDimension): unknown {
     if (dimension === 'semanticDiversity') {
@@ -255,6 +262,21 @@ describe('Admin Lite trace API', () => {
     const prompts = await request(app).get(`/api/admin/prompt-traces?gameId=${gameId}`).expect(200);
     expect(prompts.body.records.filter((record: { task: string }) => record.task === 'judge')).toHaveLength(4);
   }));
+  it('redacts evaluation fixture words from judge trace output', async () => withAdminTraceEnv(async () => {
+    const { app } = createApp(new SensitiveOutputJudgeModel());
+    const response = await request(app)
+      .post('/api/admin/evaluations')
+      .send({ model: 'fake', cases: ['normal-human-input'], judgeEnabled: true })
+      .expect(201);
+
+    const gameId = response.body.report.deterministic.cases[0].gameId;
+    const traces = await request(app).get('/api/admin/traces?id=' + gameId).expect(200);
+    const serialized = JSON.stringify(traces.body.events.filter((event: { task?: string }) => event.task === 'judge'));
+    expect(serialized).toContain('[已脱敏]');
+    expect(serialized).not.toContain('雨伞');
+    expect(serialized).not.toContain('雨衣');
+  }));
+
   it('returns a Full AI Behavior Score only when all five dimensions succeed', async () => withAdminTraceEnv(async () => {
     const model = new FiveDimensionJudgeFakeModel();
     const { app } = createApp(model);

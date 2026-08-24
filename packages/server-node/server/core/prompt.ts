@@ -82,6 +82,11 @@ const VOTE_SYSTEM =
 const REVIEW_SYSTEM =
   '你是“谁是卧底”的专业赛后分析师。根据完整赛局生成精炼、具体、有洞察的中文复盘。只输出 JSON。';
 
+/**
+ * 把隔离后的 AgentContext 渲染为描述任务 Prompt。
+ * 阵营目标、Persona、安全政策和可选 repair 分层组合；metadata/secretWords 供 trace、统计和调试脱敏使用，
+ * 真正传给 provider 的 context 仍只包含当前 Agent 私密信息与公共视图。
+ */
 export function buildDescribePrompt(context: AgentContext, request?: DescriptionRequest): RenderedPrompt {
   const strategy = getAgentStrategy(context.identity.strategyId);
   const completeWordsOnly = request?.secretPolicy === 'complete_words';
@@ -109,6 +114,7 @@ export function buildDescribePrompt(context: AgentContext, request?: Description
       keyPrinciple: strategy.persona.keyPrinciple,
     },
     ...(request?.repair ? { repair: request.repair } : {}),
+    // 这里只序列化 buildAgentContext 的隔离视图：当前 Agent 私密信息 + 已公开对局信息。
     context,
     output: { description: 'string', private_reasoning_summary: 'string' },
   };
@@ -135,6 +141,10 @@ export function buildDescribePrompt(context: AgentContext, request?: Description
   };
 }
 
+/**
+ * 构造投票 Prompt。
+ * 只向模型提供隔离上下文和服务端计算出的 allowedTargets，Persona 影响判断视角，但最终目标合法性仍由服务端验证。
+ */
 export function buildVotePrompt(
   context: AgentContext,
   allowedTargets: Array<{ id: string; name: string }>,
@@ -180,6 +190,10 @@ export function buildVotePrompt(
   };
 }
 
+/**
+ * 构造终局复盘 Prompt。
+ * 只有对局 finished 后才使用完整身份、词、描述和投票记录；该完整视图不复用于发言或投票 Agent。
+ */
 export function buildReviewPrompt(game: GameState): RenderedPrompt {
   const publicRecord = {
     players: game.players.map(({ id, name, role, word, alive }) => ({ id, name, role, word, alive })),
@@ -221,7 +235,12 @@ export function renderPromptHash(version: string, messages: PromptMessage[]): st
   return createHash('sha256').update(JSON.stringify({ version, messages })).digest('hex');
 }
 
+/**
+ * 为调试记录生成 Prompt 的脱敏副本，不修改真实 provider 请求。
+ * 递归替换 secretWords，并额外强制覆盖 identity.word；新增 Prompt 字段时应同步审查该脱敏边界。
+ */
 export function sanitizePromptForDebug(prompt: RenderedPrompt): PromptMessage[] {
+  // 调试副本先按 secretWords 递归脱敏，并强制覆盖 identity.word；真实请求 Prompt 不经此函数改写。
   return prompt.messages.map((message) => {
     if (message.role !== 'user') return message;
     try {
@@ -240,7 +259,7 @@ function redactSecrets(value: unknown, secrets: string[]): void {
   if (Array.isArray(value)) {
     for (let index = 0; index < value.length; index += 1) {
       const item = value[index];
-      if (typeof item === 'string' && secrets.includes(item)) value[index] = '<REDACTED>';
+      if (typeof item === 'string') value[index] = redactSecretText(item, secrets);
       else redactSecrets(item, secrets);
     }
     return;
@@ -248,8 +267,8 @@ function redactSecrets(value: unknown, secrets: string[]): void {
   if (value && typeof value === 'object') {
     const record = value as Record<string, unknown>;
     for (const [key, item] of Object.entries(record)) {
-      if (typeof item === 'string' && secrets.includes(item)) {
-        record[key] = '<REDACTED>';
+      if (typeof item === 'string') {
+        record[key] = redactSecretText(item, secrets);
       } else {
         redactSecrets(item, secrets);
       }
@@ -257,8 +276,18 @@ function redactSecrets(value: unknown, secrets: string[]): void {
   }
 }
 
+function redactSecretText(value: string, secrets: readonly string[]): string {
+  return [...new Set(secrets.filter(Boolean))]
+    .sort((left, right) => right.length - left.length)
+    .reduce((safe, secret) => safe.replaceAll(secret, '<REDACTED>'), value);
+}
+
 const DEFAULT_DEBUG_PATH = path.resolve(fileURLToPath(new URL('../../traces/prompt-debug.jsonl', import.meta.url)));
 
+/**
+ * 记录可复现的 Prompt 调试证据。
+ * 始终可通知内存 collector；只有 PROMPT_TRACE_DEBUG=1 时才写 JSONL，落盘内容必须先经过 sanitizePromptForDebug。
+ */
 export function recordPromptDebug(prompt: RenderedPrompt): void {
   const record: PromptDebugRecord = {
     timestamp: new Date().toISOString(),

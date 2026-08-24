@@ -192,3 +192,27 @@ Case 3(卧底 · 第3轮 · 后手位,公开描述偏狐狸特征):
 - 链接：六条记录均使用 `https://github.com/ppipil/who-is-spy/blob/<branch>/<path>/summary.md`，在 History 和 Detail 提供 `View Evidence / GitHub`。
 - 验证：仓库根目录 `npm.cmd run build` 通过（Web `tsc --noEmit` + Vite、Node `tsc --noEmit`）；`npm.cmd test --workspace packages/server-node -- --run server/admin-lite.test.ts` 为 1 文件 / 8 测试通过；`npm.cmd run contract:node` 为 28 通过 / 0 失败；`git diff --check` 无 whitespace error。未调用真实 DeepSeek，未重跑 M1–M6。
 - 默认开关：Admin Console 现在默认开启，只有显式设置 `ENABLE_ADMIN_CONSOLE=0` 才关闭；根 `.env` 与 `.env.example` 记录 `ENABLE_ADMIN_CONSOLE=1`。运行中的 `/api/admin/evaluations` 返回 M1–M6 共 6 条归档记录；`npm.cmd run build --workspace packages/server-node` 通过，Admin Lite 定向测试仍为 1 文件 / 8 测试通过。
+
+### Admin Lite Fault Demo 两阶段恢复与 Trace（分支 `feat/admin-lite`）
+
+- 复用：继续使用 `FaultInjectingModel` / `FaultSpec`、`GameEngine.resumeDescription()`、description pending state、`recovery_action`、local review fallback、`TraceEventStore` 与 `replayTrace()`；未新增第二套 fault engine，未调用 DeepSeek。
+- 后端：三个固定 deterministic fake 场景由 thin `FaultDemoService` 驱动；Timeout 两次自动尝试均注入 timeout 后保持 `describing` 和已提交描述，通过 `POST /api/admin/fault-demos/:runId/recover` 才触发现有 manual resume；活动 session 仅保存在内存并限制 30 分钟 / 20 条，不建设 Fault History。Bad JSON 保留 invalid_json 后自动 retry；Review 两次 provider_5xx 后使用 local fallback。
+- Trace/UI：注入事件使用现有 `injectedFault` 字段；Fault run lifecycle 写入 scenario/faultType/targetAgent/scenarioOutcome。新增 `FAULT_RUN` 来源筛选、完整 run-summary API、Review 时间线、真实 retryable 展示、自动展开、故障来源 Inspector 和 redacted Replay；移除未记录却硬编码的 600ms。Fault 页面拆分 `FAULT TRIGGERED` 与 outcome，并显示 Attempt Timeline、State Protection、Restore Provider & Resume。
+- 实际 API：Timeout 为 `FAILED → retry scheduled → FAILED → retry exhausted`，状态 `PAUSED SAFELY/describing`；恢复后为 `manual resume → SUCCESS → RECOVERED`，进入 `voting`。Bad JSON 为 `FAILED → retry scheduled → SUCCESS / RECOVERED BY RETRY`。Review 为 `FAILED → retry → FAILED → exhausted → fallback / RECOVERED BY FALLBACK`。对应 Trace run 均为 `FAULT_RUN`，Replay 可还原失败、重试、恢复和公开状态推进。
+- Tab 持久化：Admin Trace / Evaluation / Fault 三个页面改为始终挂载并仅通过 `hidden` 切换可见性，避免切换 Tab 时销毁表单、报告、Fault 结果与 Trace 选择；Trace 同步响应持久挂载后的 runId prop 更新，保留 View Trace 定位。`npm.cmd run build --workspace packages/web` 通过。
+- 验证：`npm.cmd run build` 前后端通过；provider/quality/prompt/fault/trace/Admin 定向测试 7 文件 / 41 测试通过；`npm.cmd run test:node` 16 文件 / 70 测试通过；`npm.cmd run contract:node` 28 通过 / 0 失败。未 commit。
+
+### Agent / Evaluation / Trace 当前实现审计与中文注释（未 commit）
+
+- 范围：仅审计 `packages/server-node`；新增 `docs/AGENT_DESIGN_AUDIT.md`，列出三条任务线的文件/函数、问题→做法→放弃方案→原因、指标公式/阈值、故障恢复和 trace 字段。函数级中文 TSDoc 覆盖 AgentContext、GameEngine 编排/恢复/投票、Persona、质量门禁、Prompt/Model 重试、Evaluation、Trace 与 Fault Demo，可直接用于面试讲解；未修改 `packages/server-go`。
+- 边界结论：Runtime model trace 不写 API Key、完整 Prompt、原始响应或评测固定词；Prompt Debug 对字符串做敏感词子串替换。`prompt_provenance.role` 仍保存当前 Agent 身份，报告明确标为仅限管理员的私有诊断数据和可进一步收紧项。
+- 定向验证：`npm.cmd test --workspace packages/server-node -- --run server/core/agent-context.test.ts server/core/game-engine.test.ts server/core/agent-strategy.test.ts server/persona/persona-distinguishability.test.ts server/core/description-quality.test.ts server/core/prompt-policy.test.ts server/core/model.test.ts server/fault/fault-injection.test.ts server/core/description-resume.test.ts server/evaluation/evaluation.test.ts server/evaluation/usage-metrics.test.ts` 为 11 文件 / 48 测试通过。
+- 完整验证：`npm.cmd run build --workspace packages/server-node` 通过；`npm.cmd run test:node` 为 16 文件 / 70 测试通过；`npm.cmd run contract:node` 为 28 通过 / 0 失败。未调用真实 DeepSeek，未 commit。
+
+
+### Evaluation 配置与 Trace 脱敏边界收口（未 commit）
+
+- 边界：Evaluation 表单/API 继续显示可编辑题目配置，便于明确评测输入；观测链路不再保存 `trace_run.fixtureWords`，从 `EvaluationOptions → GameEngine → TraceRunMetadata/API → Trace UI` 删除该字段，未改变评测运行所需的 `wordPair`。
+- 源头脱敏：Prompt Debug 对所有字符串执行敏感词子串替换，不再只处理字段值完全相等的情况；AI Judge 的 `inputSummary` 与 `output` 在写入 runtime trace 前使用同一 sensitive terms redactor 二次脱敏。
+- 历史清理与运行验证：只把 `packages/server-node/traces/*.jsonl` 内已知评测词替换为 `[REDACTED]`，保留 Trace 结构与事件；随后重启 Node 后端并运行一次 deterministic fake Evaluation（未调用 DeepSeek），报告 PASS，`admin-runtime.jsonl` / `prompt-trace.jsonl` / `runtime-trace.jsonl` 的完整评测词命中和 `fixtureWords` 字段数均为 0。
+- 验证：Prompt/Admin 定向回归为 2 文件 / 16 测试通过；`npm.cmd run build` 前后端通过；`npm.cmd run test:node` 为 16 文件 / 71 测试通过；`npm.cmd run contract:node` 为 28 通过 / 0 失败。

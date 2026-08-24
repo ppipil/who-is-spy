@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { GameModel } from '../core/model.js';
 import type { PromptDebugRecord } from '../core/prompt.js';
-import { listTraceRuns, type RuntimeTraceEvent, type TraceEventStore } from '../trace/trace.js';
+import { listTraceRuns, replayTrace, type RuntimeTraceEvent, type TraceEventStore } from '../trace/trace.js';
 
 interface AdminTraceRouterOptions {
   model: GameModel;
@@ -21,6 +21,20 @@ export function createAdminTraceRouter(options: AdminTraceRouterOptions): Router
       activeGames: listTraceRuns(runtimeTrace.events).filter((run) => run.status === 'running').length,
       adminEnabled: true,
     });
+  });
+
+  router.get('/trace-runs', (request, response) => {
+    const { id, sourceType } = request.query;
+    let runs = listTraceRuns(runtimeTrace.events);
+    if (typeof id === 'string' && id) runs = runs.filter((run) => run.runId === id || run.gameId === id);
+    if (typeof sourceType === 'string' && sourceType) runs = runs.filter((run) => run.sourceType === sourceType);
+    response.json({ count: runs.length, runs: runs.slice(0, 100) });
+  });
+
+  router.get('/traces/:runId/replay', (request, response) => {
+    const events = runtimeTrace.events.filter((event) => event.runId === request.params.runId || event.gameId === request.params.runId);
+    if (events.length === 0) { response.status(404).json({ error: 'Trace run 不存在' }); return; }
+    response.json({ runId: request.params.runId, replay: replayTrace(events, request.params.runId) });
   });
 
   router.get('/traces', (request, response) => {

@@ -281,7 +281,7 @@ async function runDimension(
     try {
       const raw = await judgeModel.completeJson!('judge', messages, TEMPERATURE);
       const output = definition.schema.parse(raw);
-      traceJudgeCall(trace, definition, debugPrompt, judgeModel.model, performance.now() - startedAt, 'success', output, undefined, attempt, false);
+      traceJudgeCall(trace, definition, debugPrompt, redact, judgeModel.model, performance.now() - startedAt, 'success', output, undefined, attempt, false);
       return { status: 'available', score: output.score, retryCount: attempt - 1, reason: output.reason, evidence: output.evidence, summary: output.summary };
     } catch (error) {
       lastError = error;
@@ -289,7 +289,7 @@ async function runDimension(
       if (error instanceof z.ZodError) {
         judgeDebug('schema_mismatch', { dimension: definition.id, issues: error.issues.map((issue) => ({ path: issue.path.join('.') || '<root>', code: issue.code })) });
       }
-      traceJudgeCall(trace, definition, debugPrompt, judgeModel.model, performance.now() - startedAt, 'failure', undefined, error, attempt, willRetry);
+      traceJudgeCall(trace, definition, debugPrompt, redact, judgeModel.model, performance.now() - startedAt, 'failure', undefined, error, attempt, willRetry);
       if (willRetry) dimensionRetries += 1;
       if (!willRetry) break;
     }
@@ -350,6 +350,7 @@ function traceJudgeCall(
   trace: JudgeTraceContext | undefined,
   definition: JudgeDimensionDefinition,
   prompt: RenderedPrompt,
+  redact: (text: string) => string,
   model: string,
   latencyMs: number,
   outcome: 'success' | 'failure',
@@ -365,7 +366,8 @@ function traceJudgeCall(
     agentId: dimensionAgentId(definition.id), agentName: `人工智能裁判·${definition.label}`, attempt,
     errorType: diagnostic?.errorType, httpStatus: diagnostic?.httpStatus,
     latencyMs: Math.round(latencyMs * 10_000) / 10_000, willRetry, outcome, model, temperature: TEMPERATURE,
-    inputSummary: prompt.messages[1]?.content, output: output ? JSON.stringify(output) : undefined, promptTemplateVersion: prompt.version,
+    inputSummary: prompt.messages[1]?.content ? redact(prompt.messages[1].content) : undefined,
+    output: output ? redact(JSON.stringify(output)) : undefined, promptTemplateVersion: prompt.version,
     sourceType: 'EVAL_RUN', entrypoint: 'admin', modelKind: trace.modelKind, runId: trace.runId,
   });
 }

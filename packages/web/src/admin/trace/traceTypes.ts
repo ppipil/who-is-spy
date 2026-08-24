@@ -45,15 +45,21 @@ export interface TraceFilters {
   sourceType: string;
 }
 
-export interface TraceRunRow {
+export interface TraceRunSummary {
   runId: string;
   gameId?: string;
   sourceType: string;
   status: 'running' | 'completed' | 'failed' | 'stale';
   createdAt: string;
   modelKind?: string;
+  scenario?: string;
+  faultType?: string;
+  targetAgent?: string;
+  scenarioOutcome?: string;
+}
+
+export interface TraceRunRow extends TraceRunSummary {
   durationMs: number;
-  fixtureWords?: string[];
   events: RuntimeEvent[];
 }
 

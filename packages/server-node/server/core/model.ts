@@ -107,6 +107,7 @@ export class DeepSeekClient implements GameModel {
     return this.apiKey.length > 0;
   }
 
+  /** 构造描述 Prompt、记录脱敏溯源，并在 provider/JSON/schema 层重试；质量门禁重试由 GameEngine 负责。 */
   async describe(context: AgentContext, request?: DescriptionRequest): Promise<string> {
     const prompt = buildDescribePrompt(context, request);
     this.traceProvenance(prompt);
@@ -117,6 +118,7 @@ export class DeepSeekClient implements GameModel {
     });
   }
 
+  /** 仅把合法目标的 id/name 交给模型，解析结构化投票后再次校验 targetId 必须来自 allowlist。 */
   async vote(context: AgentContext, allowedTargets: Player[]): Promise<{ targetId: string; reason: string }> {
     const prompt = buildVotePrompt(
       context,
@@ -138,6 +140,7 @@ export class DeepSeekClient implements GameModel {
     });
   }
 
+  /** 对终局完整状态生成结构化复盘；失败会向上抛出，由 GameEngine.createReview 提供本地 fallback。 */
   async review(game: GameState): Promise<GameReview> {
     const prompt = buildReviewPrompt(game);
     this.traceProvenance(prompt);
@@ -147,11 +150,13 @@ export class DeepSeekClient implements GameModel {
     );
   }
 
+  /** 为 Judge 等非单局 Agent 任务提供复用的 JSON 调用入口，使用独立的两次重试策略。 */
   async completeJson(task: ModelTask, messages: ChatMessage[], temperature: number): Promise<unknown> {
     return this.withRetryStandalone(task, async (attempt) => this.chatJson(task, messages, temperature, attempt));
   }
   private traceProvenance(prompt: RenderedPrompt): void {
     if (!this.traceSink) return;
+    // Trace 只记模板版本、哈希、计数和策略元数据，不写完整 prompt 或模型原始响应。
     this.traceSink.record({
       eventType: 'prompt_provenance',
       gameId: prompt.metadata.gameId,
@@ -171,6 +176,11 @@ export class DeepSeekClient implements GameModel {
     });
   }
 
+  /**
+   * 单局 Agent 模型调用的统一重试器。
+   * 每次失败先归一化诊断并写 trace：network/timeout 最多 4 次，其他可重试错误最多 2 次；
+   * 非重试错误立即抛出，退避时间随 attempt 线性增长。这里不吞错，也不修改 GameState。
+   */
   private async withRetry<T>(
     task: ModelTask,
     context: AgentContext | GameState,
@@ -221,6 +231,11 @@ export class DeepSeekClient implements GameModel {
     }
     throw lastError ?? new ModelError('AI 服务暂时不可用，已自动重试；请稍后再试');
   }
+  /**
+   * 执行一次实际 HTTP JSON 请求。
+   * API Key 仅进入 Authorization header；AbortController 实施超时；成功响应先采集 usage，再解析模型 content JSON。
+   * HTTP、空内容、坏 JSON 和传输异常都转换成带 retryable/attempt 的 ModelError，供上层统一决策。
+   */
   private async chatJson(task: ModelTask, messages: ChatMessage[], temperature: number, attempt: number): Promise<unknown> {
     if (!this.isConfigured()) {
       throw new ModelError('未配置模型密钥，请检查本地环境变量', undefined, {
@@ -236,6 +251,7 @@ export class DeepSeekClient implements GameModel {
       const response = await this.transport(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
+          // Key 只在传输层组装 Authorization；诊断与 trace 只记录归一化错误类型/HTTP 状态。
           Authorization: `Bearer ${this.apiKey}`,
           'Content-Type': 'application/json',
         },
@@ -288,6 +304,10 @@ export class DeepSeekClient implements GameModel {
     }
   }
 
+  /**
+   * 将 provider usage 标准化后发送给可选 telemetry sink。
+   * telemetry 异常被隔离，绝不能反向导致一次已成功的模型调用失败。
+   */
   private recordUsage(
     providerModel: string | undefined,
     usage: {
@@ -318,6 +338,10 @@ export class DeepSeekClient implements GameModel {
       // Telemetry must never fail a model call.
     }
   }
+  /**
+   * 写入最小化运行 trace：定位字段、attempt、归一化错误、延迟和重试结论。
+   * 明确不写 context、请求头、完整 Prompt、原始异常或 provider response，避免把 Key、密词或隐藏推理带入日志。
+   */
   private traceModelCall(
     context: AgentContext | GameState,
     task: ModelTask,
@@ -329,6 +353,7 @@ export class DeepSeekClient implements GameModel {
   ): void {
     if (!this.traceSink) return;
     const isGame = 'players' in context;
+    // 不把 context、请求头、prompt、原始异常或 provider response 放进运行 trace。
     this.traceSink.record({
       eventType: 'model_call',
       gameId: isGame ? context.id : context.game.gameId ?? 'unknown',
@@ -352,6 +377,10 @@ export class DeepSeekClient implements GameModel {
 function tokenCount(value: number | undefined): number | null {
   return Number.isInteger(value) && value !== undefined && value >= 0 ? value : null;
 }
+/**
+ * 将任意错误压缩成稳定的 ModelDiagnostic，供重试、用户错误映射、trace 和故障注入共同使用。
+ * 已分类 ModelError 保留其类型；Zod、JSON、网络和未知错误分别映射，避免日志依赖 provider 原始报错文本。
+ */
 export function normalizeModelDiagnostic(error: unknown, attempt: number): ModelDiagnostic {
   if (error instanceof ModelError && error.diagnostic) return { ...error.diagnostic, attempt };
   if (error instanceof z.ZodError) return { errorType: 'schema_validation', retryable: true, attempt };

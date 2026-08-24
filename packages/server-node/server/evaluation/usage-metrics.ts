@@ -36,6 +36,10 @@ interface Pricing {
   tier: 'peak' | 'off-peak' | 'configured';
 }
 
+/**
+ * 创建一次评测运行的 token/成本累加器。
+ * 每个成功 HTTP 响应的 provider usage 都会累加；只有所有请求都能匹配价目表时才给出成本，否则保留 token 并把 cost 标为 unavailable。
+ */
 export function createUsageAccumulator(games: number, environment: NodeJS.ProcessEnv = process.env): UsageAccumulator {
   const tokenUsage: TokenUsageMetrics = {
     input: null,
@@ -86,6 +90,7 @@ function updateCost(cost: CostMetrics, model: string, pricing: Pricing | null, t
 }
 
 function requestCost(usage: ModelUsage, pricing: Pricing): number {
+  // 成本按 provider 返回的缓存命中输入、缓存未命中输入、输出 token 分别计价后求和。
   return (
     usage.promptCacheHitTokens * pricing.cacheHitInputUsdPerMillion
     + usage.promptCacheMissTokens * pricing.cacheMissInputUsdPerMillion
@@ -93,6 +98,10 @@ function requestCost(usage: ModelUsage, pricing: Pricing): number {
   ) / 1_000_000;
 }
 
+/**
+ * 解析单次请求的价格来源：环境变量完整配置优先，否则按官方模型族和 UTC 峰/谷时段匹配。
+ * 未知私有别名返回 null，避免用错误价目伪造成本精度。
+ */
 function resolvePricing(model: string, at: Date, environment: NodeJS.ProcessEnv): Pricing | null {
   const configured = configuredPricing(environment);
   if (configured) return configured;
@@ -135,6 +144,7 @@ function officialPricing(hit: number, miss: number, output: number, tier: 'peak'
   };
 }
 
+/** 按 provider 的 UTC 工作日时间窗判断峰值计价；使用 UTC 避免部署机器时区改变成本结果。 */
 function isPeak(at: Date): boolean {
   const day = at.getUTCDay();
   const hour = at.getUTCHours();
