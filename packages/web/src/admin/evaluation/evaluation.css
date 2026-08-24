@@ -252,19 +252,29 @@
 .history-card {
   display: grid;
   gap: 8px;
+  min-width: 0;
 }
 
 .history-card button {
   display: grid;
   gap: 3px;
   width: 100%;
+  min-width: 0;
   border: 1px solid rgba(33, 30, 25, 0.1);
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 10px;
   background: rgba(250, 247, 240, 0.52);
   color: inherit;
   text-align: left;
   cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.history-card button > * {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .history-card button.is-active {
@@ -284,6 +294,7 @@
 .history-entry {
   display: grid;
   gap: 4px;
+  min-width: 0;
 }
 
 .history-entry > a,
@@ -292,6 +303,8 @@
   font-size: 12px;
   font-weight: 700;
   text-decoration: none;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .history-entry > a:hover,
