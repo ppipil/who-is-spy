@@ -338,10 +338,10 @@ async function driveGame(engine: GameEngine, initial: PublicGameState, firstHuma
     if (game.phase === 'describing') {
       game = await engine.submitHumanDescription(game.id, game.round === 1 && firstHumanDescription ? firstHumanDescription : `第${game.round}轮我想到一种常见体验`);
     } else {
-      const allowed = game.eligibleTargetIds
-        ? game.eligibleTargetIds
-        : game.players.filter((player) => player.alive && !player.isHuman).map((player) => player.id);
-      game = await engine.submitHumanVote(game.id, allowed[0]);
+      const eligible = game.eligibleTargetIds ? new Set(game.eligibleTargetIds) : null;
+      const target = game.players.find((player) => player.alive && !player.isHuman && (!eligible || eligible.has(player.id)));
+      if (!target) throw new Error('evaluation human vote has no eligible AI target');
+      game = await engine.submitHumanVote(game.id, target.id);
     }
   }
   return game;

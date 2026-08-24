@@ -85,6 +85,21 @@ class InconsistentPersonaJudgeModel extends FiveDimensionJudgeFakeModel {
     return super.responseFor(dimension);
   }
 }
+
+class MissingRatingPersonaJudgeModel extends FiveDimensionJudgeFakeModel {
+  protected responseFor(dimension: FixtureJudgeDimension): unknown {
+    if (dimension === 'personaAdherence') {
+      return {
+        score: 8,
+        reason: '角色策略表现稳定，四类策略风格在公开描述里可区分。',
+        evidence: '公开描述体现谨慎、直觉、分析和反共识等差异。',
+        summary: '整体角色策略一致性较好。',
+      };
+    }
+    return super.responseFor(dimension);
+  }
+}
+
 function withAdminTraceEnv<T>(operation: () => Promise<T>): Promise<T> {
   const previousEnabled = process.env.ENABLE_ADMIN_CONSOLE;
   const previousTracePath = process.env.ADMIN_TRACE_JSONL;
@@ -341,6 +356,20 @@ describe('Admin Lite trace API', () => {
     expect(successfulCalls).toHaveLength(4);
   }));
 
+  it('normalizes missing Judge rating labels without making Persona Adherence unavailable', async () => withAdminTraceEnv(async () => {
+    const model = new MissingRatingPersonaJudgeModel();
+    const { app } = createApp(model);
+    const response = await request(app)
+      .post('/api/admin/evaluations')
+      .send({ model: 'fake', cases: ['normal-human-input', 'nonsense-human-input'], judgeEnabled: true })
+      .expect(201);
+
+    expect(response.body.report.judge).toMatchObject({ status: 'available', scoreCoverage: 'full', availableMetrics: 5, totalMetrics: 5, behaviorScore: 6.15, retryCount: 0 });
+    expect(response.body.report.judge.output.personaAdherence).toMatchObject({ status: 'available', score: 8, retryCount: 0 });
+    expect(response.body.report.judge.output.personaAdherence.reason).toContain('评级：良好');
+    expect(response.body.report.judge.output.personaAdherence.summary).toContain('评级：良好');
+    expect(model.calls.filter((dimension) => dimension === 'personaAdherence')).toHaveLength(1);
+  }));
   it('rejects only the Judge dimension whose score conflicts with its written rating', async () => withAdminTraceEnv(async () => {
     const model = new InconsistentPersonaJudgeModel();
     const { app } = createApp(model);

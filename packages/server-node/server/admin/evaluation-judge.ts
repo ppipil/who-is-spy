@@ -73,6 +73,7 @@ const humanInputResponsivenessSchema = createDimensionSchema();
 const exposureControlSchema = createDimensionSchema();
 
 type DimensionModelOutput = z.infer<typeof personaAdherenceSchema>;
+type RawDimensionModelOutput = z.input<typeof personaAdherenceSchema>;
 
 export interface JudgeDimensionResult {
   status: JudgeDimensionStatus;
@@ -280,7 +281,7 @@ async function runDimension(
     const startedAt = performance.now();
     try {
       const raw = await judgeModel.completeJson!('judge', messages, TEMPERATURE);
-      const output = definition.schema.parse(raw);
+      const output = definition.schema.parse(normalizeDimensionOutput(raw));
       traceJudgeCall(trace, definition, debugPrompt, redact, judgeModel.model, performance.now() - startedAt, 'success', output, undefined, attempt, false);
       return { status: 'available', score: output.score, retryCount: attempt - 1, reason: output.reason, evidence: output.evidence, summary: output.summary };
     } catch (error) {
@@ -298,6 +299,26 @@ async function runDimension(
   return unavailableDimension(failureReason(lastError), Math.max(dimensionRetries, retryCountFor(lastError)));
 }
 
+function normalizeDimensionOutput(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return raw;
+  const record = raw as Partial<RawDimensionModelOutput>;
+  const score = record.score;
+  if (typeof score !== 'number' || !Number.isInteger(score) || score < 0 || score > 10) return raw;
+  const expectedBand = scoreBand(score);
+  return {
+    ...record,
+    reason: normalizeRatingField(record.reason, expectedBand.chinese),
+    summary: normalizeRatingField(record.summary, expectedBand.chinese),
+  };
+}
+
+function normalizeRatingField(value: unknown, expectedRating: string): unknown {
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  if (!/[\u3400-\u9fff]/u.test(trimmed)) return value;
+  if (SCORE_BANDS.some((band) => trimmed.includes(band.chinese))) return value;
+  return `评级：${expectedRating}。${trimmed}`;
+}
 function dimensionMessages(definition: JudgeDimensionDefinition, evidence: unknown): ChatMessage[] {
   return [
     { role: 'system', content: [
