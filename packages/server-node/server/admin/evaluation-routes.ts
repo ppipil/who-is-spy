@@ -6,51 +6,24 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { runEvaluation, type EvaluationModelKind, type EvaluationResult } from '../evaluation/evaluation.js';
 import { FakeGameModel } from '../support/test-utils.js';
-import type { GameModel } from '../core/model.js';
+import { DeepSeekClient, type GameModel } from '../core/model.js';
+import type { TraceEventStore } from '../trace/trace.js';
+import { runAiJudge, type EvaluationJudgeResult, type JudgeTraceContext } from './evaluation-judge.js';
 
 const CANONICAL_CASES = [
-  { id: 'normal-human-input', name: 'Normal Human Input', humanDescription: '可以防止身体被淋湿。' },
-  { id: 'nonsense-human-input', name: 'Nonsense Human Input', humanDescription: '一一二二，哈哈嘿嘿。' },
+  { id: 'normal-human-input', name: '正常真人输入 Normal Human Input', humanDescription: '可以防止身体被淋湿。' },
+  { id: 'nonsense-human-input', name: '乱填真人输入 Nonsense Human Input', humanDescription: '一一二二，哈哈嘿嘿。' },
 ] as const;
 
-const JUDGE_WEIGHTS = {
-  personaAdherence: 0.25,
-  semanticDiversity: 0.2,
-  contextUtilization: 0.2,
-  humanInputResponsiveness: 0.2,
-  exposureControl: 0.15,
-} as const;
+const EVALUATION_WORD_PAIR = ['雨伞', '雨衣'] as const;
+const editableText = z.string().trim().min(2).max(120);
+const wordPairInput = z.tuple([z.string().trim().min(1).max(20), z.string().trim().min(1).max(20)]).refine(
+  ([civilianWord, undercoverWord]) => civilianWord !== undercoverWord,
+  { message: '平民词与卧底词必须不同 The two words must be different' },
+);
 
 type CanonicalCaseId = (typeof CANONICAL_CASES)[number]['id'];
-type JudgeStatus = 'available' | 'unavailable' | 'disabled';
-
-const judgeDimensionSchema = z.object({
-  score: z.number().min(0).max(10),
-  reason: z.string().max(800).optional(),
-  evidence: z.string().max(1200).optional(),
-});
-
-const judgeOutputSchema = z.object({
-  personaAdherence: z.object({
-    score: z.number().min(0).max(10),
-    agents: z.object({
-      cautious: z.number().min(0).max(10),
-      intuitive: z.number().min(0).max(10),
-      analytical: z.number().min(0).max(10),
-      contrarian: z.number().min(0).max(10),
-    }),
-    reason: z.string().max(800).optional(),
-    evidence: z.string().max(1200).optional(),
-  }),
-  semanticDiversity: judgeDimensionSchema,
-  contextUtilization: judgeDimensionSchema,
-  humanInputResponsiveness: judgeDimensionSchema,
-  exposureControl: judgeDimensionSchema,
-  issues: z.array(z.string().max(300)).max(12).default([]),
-  summary: z.string().max(1200).default(''),
-});
-
-type JudgeOutput = z.infer<typeof judgeOutputSchema>;
+type AdminEvaluationCase = { id: CanonicalCaseId; name: string; humanDescription: string };
 
 interface AdminEvaluationReport {
   id: string;
@@ -59,33 +32,68 @@ interface AdminEvaluationReport {
   createdAt: string;
   status: 'PASS' | 'WARN' | 'FAIL';
   model: EvaluationModelKind;
-  cases: Array<{ id: CanonicalCaseId; name: string; humanDescription: string }>;
+  cases: AdminEvaluationCase[];
   durationMs: number;
-  deterministic: EvaluationResult;
-  judge: {
-    status: JudgeStatus;
-    retryCount: number;
-    behaviorScore: number | null;
-    reason: string;
-    output?: JudgeOutput;
-  };
+  evidenceUrl?: string;
+  archivedEvidence?: ArchivedEvaluationEvidence;
+  deterministic?: EvaluationResult;
+  judge?: EvaluationJudgeResult;
   problems: Array<{ title: string; evidence?: string }>;
+}
+
+interface ArchivedEvaluationEvidence {
+  versionStage: string;
+  evaluatedCommit: string;
+  model: string;
+  gamesSeeds: string;
+  completion: string;
+  validVote: string;
+  homogeneity: string;
+  latency: string;
+  tokenCost: string;
+  gateResult: string;
+  conclusion: string;
+  sourceBranch: string;
+  sourcePath: string;
+  notMeasured: string[];
 }
 
 const startInput = z.object({
   model: z.enum(['fake', 'real']).default('fake'),
   cases: z.array(z.enum(['normal-human-input', 'nonsense-human-input'])).min(1).default(['normal-human-input', 'nonsense-human-input']),
   judgeEnabled: z.boolean().default(true),
+  wordPair: wordPairInput.default(['雨伞', '雨衣']),
+  caseInputs: z.object({
+    'normal-human-input': editableText.optional(),
+    'nonsense-human-input': editableText.optional(),
+  }).default({}),
+  rounds: z.number().int().min(1).max(5).default(1),
 });
 
 const DEFAULT_REPORTS_PATH = path.resolve(fileURLToPath(new URL('../../traces/admin-evaluation-reports.json', import.meta.url)));
 const reports: AdminEvaluationReport[] = loadReports();
 
-export function createAdminEvaluationRouter(defaultModel: GameModel): Router {
+function evaluationDebug(stage: string, details: Record<string, unknown> = {}): void {
+  if (process.env.EVALUATION_DEBUG !== '1') return;
+  console.info(`[evaluation-debug] ${JSON.stringify({ stage, ...details })}`);
+}
+
+export function createAdminEvaluationRouter(defaultModel: GameModel, runtimeTrace?: TraceEventStore): Router {
   const router = Router();
+  const deepSeekProvider = defaultModel instanceof DeepSeekClient ? defaultModel : new DeepSeekClient();
 
   router.get('/evaluation/cases', (_request, response) => {
-    response.json({ cases: CANONICAL_CASES });
+    response.json({
+      cases: CANONICAL_CASES,
+      fixtureWords: EVALUATION_WORD_PAIR,
+      defaultRounds: 1,
+      maxRounds: 5,
+      provider: {
+        model: deepSeekProvider.model,
+        configured: deepSeekProvider.isConfigured(),
+        envProxyEnabled: process.execArgv.includes('--use-env-proxy') || process.env.NODE_USE_ENV_PROXY === '1',
+      },
+    });
   });
 
   router.get('/evaluations', (_request, response) => {
@@ -95,7 +103,7 @@ export function createAdminEvaluationRouter(defaultModel: GameModel): Router {
   router.get('/evaluations/:id', (request, response) => {
     const report = [...localReports(), ...historyReports()].find((item) => item.id === request.params.id);
     if (!report) {
-      response.status(404).json({ error: 'evaluation report not found' });
+      response.status(404).json({ error: '未找到评测报告 evaluation report not found' });
       return;
     }
     response.json({ report });
@@ -105,20 +113,65 @@ export function createAdminEvaluationRouter(defaultModel: GameModel): Router {
     try {
       const input = startInput.parse(request.body ?? {});
       const startedAt = Date.now();
-      const selectedCases = CANONICAL_CASES.filter((item) => input.cases.includes(item.id));
+      const selectedCaseTemplates = CANONICAL_CASES.filter((item) => input.cases.includes(item.id));
+      const selectedCases = Array.from({ length: input.rounds }, (_, roundIndex) => selectedCaseTemplates.map((item) => ({
+        ...item,
+        name: `${item.name} · Run ${roundIndex + 1}`,
+        humanDescription: input.caseInputs[item.id] ?? item.humanDescription,
+      }))).flat();
+      evaluationDebug('request_started', {
+        model: input.model,
+        caseIds: selectedCases.map((item) => item.id),
+        rounds: input.rounds,
+        totalGames: selectedCases.length,
+        judgeEnabled: input.judgeEnabled,
+      });
+      const evaluationModel = input.model === 'fake'
+        ? new FakeGameModel()
+        : new DeepSeekClient();
       const result = await runEvaluation({
         games: selectedCases.length,
         seed: 42,
         modelKind: input.model,
-        model: input.model === 'fake' ? new FakeGameModel() : defaultModel,
+        model: evaluationModel,
         humanDescriptions: selectedCases.map((item) => item.humanDescription),
         caseIds: selectedCases.map((item) => item.id),
+        wordPair: input.wordPair,
+        traceSink: runtimeTrace,
+        traceEntrypoint: 'admin',
       });
-      const judge = await runAiJudge(input.judgeEnabled, result);
+      evaluationDebug('cases_completed', {
+        startedGames: result.metrics.startedGames,
+        completedGames: result.metrics.completedGames,
+        gatePassed: result.gate.passed,
+        cases: result.cases.map((item) => ({
+          caseId: item.caseId,
+          completed: item.completed,
+          hasError: Boolean(item.error),
+        })),
+      });
+      const judgeModel = input.model === 'fake' ? defaultModel : evaluationModel;
+      evaluationDebug('judge_started', { enabled: input.judgeEnabled });
+      const judge = await runAiJudge(input.judgeEnabled, result, judgeModel, judgeTraceContext(result, runtimeTrace, input.model), input.wordPair);
+      evaluationDebug('judge_completed', {
+        status: judge.status,
+        retryCount: judge.retryCount,
+        availableMetrics: judge.availableMetrics,
+        scoreCoverage: judge.scoreCoverage ?? null,
+        behaviorScoreAvailable: judge.behaviorScore !== null,
+      });
       const report = buildReport(input.model, selectedCases, result, Date.now() - startedAt, judge);
       saveReport(report);
+      evaluationDebug('report_saved', {
+        reportId: report.id,
+        status: report.status,
+        durationMs: report.durationMs,
+      });
       response.status(201).json({ report });
     } catch (error) {
+      evaluationDebug('request_failed', {
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      });
       next(error);
     }
   });
@@ -126,8 +179,27 @@ export function createAdminEvaluationRouter(defaultModel: GameModel): Router {
   return router;
 }
 
+function judgeTraceContext(result: EvaluationResult, runtimeTrace: TraceEventStore | undefined, model: EvaluationModelKind): JudgeTraceContext | undefined {
+  if (!runtimeTrace) return undefined;
+  const targetCase = [...result.cases].reverse().find((item) => item.completed && item.descriptions.length > 0);
+  if (!targetCase) return undefined;
+  const lifecycle = [...runtimeTrace.events].reverse().find((event) => event.eventType === 'trace_run' && event.gameId === targetCase.gameId);
+  const rounds = [...targetCase.descriptions.map((item) => item.round), ...targetCase.votes.map((item) => item.round)];
+  return {
+    traceSink: runtimeTrace,
+    gameId: targetCase.gameId,
+    runId: lifecycle?.runId ?? targetCase.gameId,
+    round: Math.max(0, ...rounds) + 1,
+    modelKind: model === 'real' ? 'real' : 'fake',
+  };
+}
 function localReports(): AdminEvaluationReport[] {
-  return [...reports].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return [...reports].sort((a, b) => reportTimestamp(b.createdAt) - reportTimestamp(a.createdAt));
+}
+
+function reportTimestamp(value: string): number {
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function saveReport(report: AdminEvaluationReport): void {
@@ -146,11 +218,14 @@ function loadReports(): AdminEvaluationReport[] {
     return Array.isArray(payload.reports)
       ? payload.reports
           .filter((report): report is AdminEvaluationReport => Boolean(report?.id && report.createdAt && report.deterministic && report.model && report.cases && report.judge))
-          .map((report) => ({
-            ...report,
-            source: 'local',
-            title: report.title === 'Latest Run' ? localReportTitle(report.model, report.cases.length) : report.title,
-          }))
+          .map((report) => {
+            const normalized = {
+              ...report,
+              source: 'local' as const,
+              title: report.title === 'Latest Run' ? localReportTitle(report.model, report.cases.length) : report.title,
+            };
+            return { ...normalized, problems: topProblems(normalized.deterministic!, normalized.judge!) };
+          })
       : [];
   } catch {
     return [];
@@ -165,10 +240,10 @@ function reportsPath(): string | null {
 
 function buildReport(
   model: EvaluationModelKind,
-  cases: Array<(typeof CANONICAL_CASES)[number]>,
+  cases: AdminEvaluationCase[],
   deterministic: EvaluationResult,
   durationMs: number,
-  judge: AdminEvaluationReport['judge'],
+  judge: EvaluationJudgeResult,
 ): AdminEvaluationReport {
   return {
     id: `eval-${randomUUID()}`,
@@ -181,183 +256,149 @@ function buildReport(
     durationMs,
     deterministic,
     judge,
-    problems: topProblems(deterministic),
+    problems: topProblems(deterministic, judge),
   };
-}
-
-async function runAiJudge(enabled: boolean, deterministic: EvaluationResult): Promise<AdminEvaluationReport['judge']> {
-  if (!enabled) return { status: 'disabled', retryCount: 0, behaviorScore: null, reason: 'AI Judge disabled for this run.' };
-  const apiKey = process.env.DEEPSEEK_API_KEY ?? '';
-  if (!apiKey) {
-    return {
-      status: 'unavailable',
-      retryCount: 0,
-      behaviorScore: null,
-      reason: 'AI Judge unavailable: DEEPSEEK_API_KEY is not configured. Deterministic engineering metrics remain valid.',
-    };
-  }
-
-  let lastReason = 'AI Judge unavailable.';
-  for (let attempt = 1; attempt <= 2; attempt += 1) {
-    try {
-      const output = await requestJudge(apiKey, deterministic);
-      return {
-        status: 'available',
-        retryCount: attempt - 1,
-        behaviorScore: aiBehaviorScore(output),
-        reason: output.summary || 'AI Judge completed.',
-        output,
-      };
-    } catch (error) {
-      lastReason = error instanceof Error ? error.message : String(error);
-    }
-  }
-
-  return {
-    status: 'unavailable',
-    retryCount: 1,
-    behaviorScore: null,
-    reason: `AI Judge unavailable after retry: ${lastReason}. Deterministic engineering metrics remain valid.`,
-  };
-}
-
-async function requestJudge(apiKey: string, deterministic: EvaluationResult): Promise<JudgeOutput> {
-  const baseUrl = (process.env.DEEPSEEK_BASE_URL ?? 'https://api.deepseek.com').replace(/\/$/, '');
-  const model = process.env.DEEPSEEK_MODEL ?? 'deepseek-v4-flash';
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30_000);
-  try {
-    const response = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model,
-        temperature: 0.2,
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: judgeSystemPrompt() },
-          { role: 'user', content: JSON.stringify(judgeEvidence(deterministic)) },
-        ],
-      }),
-      signal: controller.signal,
-    });
-    if (!response.ok) throw new Error(`AI Judge HTTP ${response.status}`);
-    const payload = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
-    const content = payload.choices?.[0]?.message?.content;
-    if (!content) throw new Error('AI Judge returned empty content');
-    return judgeOutputSchema.parse(JSON.parse(stripCodeFence(content)));
-  } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') throw new Error('AI Judge timeout');
-    throw error;
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-function judgeSystemPrompt(): string {
-  return [
-    'You are the AI Judge for a Who-is-Spy game evaluation. Use only the provided public descriptions, public vote reasons, and deterministic metrics.',
-    'Never infer or reveal secret words, hidden roles, private prompts, or hidden reasoning. Score only behavior quality.',
-    'Return strict JSON with: personaAdherence { score, agents { cautious, intuitive, analytical, contrarian }, reason, evidence }, semanticDiversity, contextUtilization, humanInputResponsiveness, exposureControl, issues, summary.',
-    'Each score is 0-10. Judge Good/Bad Examples are few-shot guidance, not a dataset. Code will calculate the weighted total: Persona 25%, Semantic Diversity 20%, Context Utilization 20%, Human Input Responsiveness 20%, Exposure Control 15%.',
-  ].join('\n');
-}
-
-function judgeEvidence(deterministic: EvaluationResult): unknown {
-  return {
-    schemaVersion: deterministic.schemaVersion,
-    metrics: deterministic.metrics,
-    cases: deterministic.cases.map((item) => ({
-      caseId: item.caseId,
-      completed: item.completed,
-      humanDescription: item.humanDescription,
-      humanVotesReceived: item.humanVotesReceived,
-      totalAiVotes: item.totalAiVotes,
-      reasonAwarenessHits: item.reasonAwarenessHits,
-      descriptions: item.descriptions,
-      votes: item.votes,
-      error: item.error,
-    })),
-  };
-}
-
-function aiBehaviorScore(output: JudgeOutput): number {
-  const score =
-    output.personaAdherence.score * JUDGE_WEIGHTS.personaAdherence +
-    output.semanticDiversity.score * JUDGE_WEIGHTS.semanticDiversity +
-    output.contextUtilization.score * JUDGE_WEIGHTS.contextUtilization +
-    output.humanInputResponsiveness.score * JUDGE_WEIGHTS.humanInputResponsiveness +
-    output.exposureControl.score * JUDGE_WEIGHTS.exposureControl;
-  return Math.round(score * 100) / 100;
 }
 
 function localReportTitle(model: EvaluationModelKind, caseCount: number): string {
-  const label = model === 'real' ? 'DeepSeek' : 'Fake';
+  const label = model === 'real' ? 'DeepSeek' : 'Fake 模型';
   const time = new Date().toLocaleString('zh-CN', { hour12: false });
-  return `${label} · ${caseCount} case${caseCount === 1 ? '' : 's'} · ${time}`;
+  return `${label} · ${caseCount} 个用例 cases · ${time}`;
 }
 
-function topProblems(result: EvaluationResult): AdminEvaluationReport['problems'] {
+function topProblems(result: EvaluationResult, judge: EvaluationJudgeResult): AdminEvaluationReport['problems'] {
   const problems: AdminEvaluationReport['problems'] = [];
   if (!result.gate.passed) problems.push(...result.gate.failures.slice(0, 3).map((failure) => ({ title: failure })));
-  if (result.metrics.latencyMs.p95 > 10_000) problems.push({ title: 'P95 latency is high', evidence: `${result.metrics.latencyMs.p95}ms` });
-  if (result.metrics.descriptionHomogeneity > 0.4) problems.push({ title: 'Description lexical homogeneity is high', evidence: String(result.metrics.descriptionHomogeneity) });
+  if (result.metrics.latencyMs.p95 > 10_000) problems.push({ title: 'P95 延迟偏高 P95 latency is high', evidence: `${result.metrics.latencyMs.p95}ms` });
+  if (result.metrics.descriptionHomogeneity > 0.4) problems.push({ title: '描述措辞同质化偏高 Description lexical homogeneity is high', evidence: String(result.metrics.descriptionHomogeneity) });
+  const judgeDimensions = [
+    ['Persona Adherence', judge.output?.personaAdherence],
+    ['Semantic Diversity', judge.output?.semanticDiversity],
+    ['Context Utilization', judge.output?.contextUtilization],
+    ['Human Input Responsiveness', judge.output?.humanInputResponsiveness],
+    ['Exposure Control', judge.output?.exposureControl],
+  ] as const;
+  for (const [label, dimension] of judgeDimensions) {
+    if (dimension?.status === 'available' && dimension.score !== null && dimension.score < 6) {
+      problems.push({ title: `${label} 偏低`, evidence: `${dimension.score.toFixed(1)}/10 · ${dimension.reason}` });
+    }
+  }
   return problems.slice(0, 5);
 }
 
 function historyReports(): AdminEvaluationReport[] {
   return [
-    historical('baseline', 'Baseline'),
-    historical('m1', 'M1'),
-    historical('m2', 'M2'),
-    historical('m3', 'M3'),
-    historical('m4', 'M4'),
-    historical('m5', 'M5'),
-    historical('m6', 'M6 Final'),
+    historical('m1', 'M1 · Baseline Evaluation', 'PASS', {
+      versionStage: 'M1 · Instrumented official baseline / real smoke',
+      evaluatedCommit: 'fc9821c (official original baseline: 7d98e19)',
+      model: 'DeepSeek Real · deepseek-v4-flash usage smoke',
+      gamesSeeds: '3-game real smoke, seed 42; separate 1-game usage smoke, seed 42',
+      completion: '3/3 (100%); usage smoke 1/1 (100%)',
+      validVote: '100%',
+      homogeneity: '0.0546 (3-game real smoke)',
+      latency: 'p50 6767.5141 ms · p95 47245.0955 ms (3-game real smoke)',
+      tokenCost: '3-game smoke: Not measured; 1-game usage smoke: 4413 input / 6822 output / 11235 total · $0.0025 estimated',
+      gateResult: 'PASS (3/3 real smoke and 1/1 usage smoke)',
+      conclusion: 'The harness drove complete live DeepSeek games. This is smoke evidence, not a formal quality comparison. M0 is referenced through the official baseline commit; no separate M0 Evaluation Report is created.',
+      sourceBranch: 'eval/m1-real-smoke',
+      sourcePath: 'docs/evidence/m1-baseline/summary.md',
+      notMeasured: ['Token/cost for the retained historical 3-game real smoke'],
+    }),
+    historical('m2', 'M2 · Persona Strategy', 'PASS', {
+      versionStage: 'M2 · Persona small-sample acceptance',
+      evaluatedCommit: 'a878e5e',
+      model: 'DeepSeek · deepseek-v4-flash',
+      gamesSeeds: '3 games, fixed seed 42',
+      completion: '3/3 (100%)',
+      validVote: '100%',
+      homogeneity: '0.0239',
+      latency: 'p50 8500.9498 ms · p95 43306.5196 ms',
+      tokenCost: '20386 input / 35474 output / 55860 total · $0.0128 estimated total',
+      gateResult: 'PASS',
+      conclusion: 'All four persona strategies were wired through the real-model path and showed directional differences. The sample is qualitative and not statistically significant; vote/review/alias exposure remained a known risk.',
+      sourceBranch: 'eval/m2-persona',
+      sourcePath: 'docs/evidence/m2-persona/summary.md',
+      notMeasured: [],
+    }),
+    historical('m3', 'M3 · Sequential Observation', 'PASS', {
+      versionStage: 'M3 · Sequential description / SSE / vote prefetch smoke',
+      evaluatedCommit: '1f3cf9e',
+      model: 'DeepSeek · deepseek-v4-flash',
+      gamesSeeds: '3 games, seed 42',
+      completion: '3/3 (100%)',
+      validVote: '100%',
+      homogeneity: '0.0051',
+      latency: 'p50 7680.3248 ms · p95 27263.8088 ms · whole run 263025.9631 ms',
+      tokenCost: '21096 input / 30883 output / 51979 total · 17326.3333/game · $0.0116 total / $0.0039 game',
+      gateResult: 'PASS',
+      conclusion: 'Every real game recorded the same-round public-description prefixes, proving context availability. Later descriptions were qualitatively less repetitive, without claiming causality or statistical significance.',
+      sourceBranch: 'eval/m3-sequential',
+      sourcePath: 'docs/evidence/m3-sequential/summary.md',
+      notMeasured: [],
+    }),
+    historical('m4', 'M4 · Quality Gate', 'PASS', {
+      versionStage: 'M4 · Pre-publication description Quality Gate',
+      evaluatedCommit: '806c05c',
+      model: 'DeepSeek · deepseek-v4-flash',
+      gamesSeeds: '3 games, seed 42',
+      completion: '3/3 (100%)',
+      validVote: '100%',
+      homogeneity: 'Not measured',
+      latency: 'p50 7757.1355 ms · p95 44454.8239 ms',
+      tokenCost: '27537 input / 41758 output / 69295 total · 23098.3333/game · $0.0156 estimated total',
+      gateResult: 'PASS; 1 exact-secret rejection and repair retry; final public exact leaks 0',
+      conclusion: 'The real smoke observed one exact-secret rejection before publication and a successful repair. The gate covered descriptions only; vote reasons, reviews, and semantic aliases remained outside enforcement.',
+      sourceBranch: 'eval/m4-quality-gate',
+      sourcePath: 'docs/evidence/m4-quality-gate/summary.md',
+      notMeasured: ['Description homogeneity in the M4 summary'],
+    }),
+    historical('m5', 'M5 · Reliability', 'WARN', {
+      versionStage: 'M5 · Fault injection, replay, and safe recovery',
+      evaluatedCommit: '49eb39d',
+      model: 'DeepSeek happy-path smoke; deterministic injected-fault scenarios',
+      gamesSeeds: '1 game each for seeds 42, 43, 44',
+      completion: 'seed 42: 0%; seeds 43/44: 100% (2/3 completed)',
+      validVote: 'seed 42: 83.33%; seeds 43/44: 100%',
+      homogeneity: 'Not measured',
+      latency: 'Not measured',
+      tokenCost: 'Not measured',
+      gateResult: 'Real smoke: FAIL / PASS / PASS for seeds 42 / 43 / 44; deterministic recovery scenarios: SAFE',
+      conclusion: 'Fault injection, precise localization, redacted trace, replay, safe ballot abort/retry, and local review fallback were verified. Seed 42 honestly retained a real invalid-vote/incomplete-game failure.',
+      sourceBranch: 'eval/m5-reliability',
+      sourcePath: 'docs/evidence/m5-reliability/summary.md',
+      notMeasured: ['Aggregate description homogeneity', 'Aggregate latency', 'Provider token usage and cost'],
+    }),
+    historical('m6', 'M6 · Baseline vs Final', 'WARN', {
+      versionStage: 'M6 · Final paired Baseline vs Improved evaluation',
+      evaluatedCommit: 'baseline 7d98e194ee57bb078ed45e9831ad42ff68a57b56 · final 49eb39da8be4f7f959a8afd642272046ca8637e9',
+      model: 'deepseek-v4-flash',
+      gamesSeeds: 'Baseline 5 + Final 5; frozen seeds 101, 102, 103, 104, 105',
+      completion: 'Baseline 5/5 (100%) · Final 4/5 (80%)',
+      validVote: 'Baseline 100% · Final 100%',
+      homogeneity: 'Baseline 0.0640 · Final 0.0107',
+      latency: 'Baseline p50/p95 6079.0 / 36629.7 ms · Final 10236.2 / 58343.0 ms',
+      tokenCost: 'Baseline 21765.6 tokens/game · $0.0162/game; Final 27251.2 tokens/game · $0.0215/game',
+      gateResult: 'Baseline 5 PASS; Final 4 PASS / 1 FAIL (seed 101 provider timeout)',
+      conclusion: 'Final traded higher latency, tokens, and estimated cost for lower lexical repetition, a leak-prevention boundary, and repair capability. Completion was lower by 0.2 in this small sample because of one retained real provider timeout.',
+      sourceBranch: 'eval/m6-final-comparison',
+      sourcePath: 'docs/evidence/m6-final-comparison/summary.md',
+      notMeasured: [],
+    }),
   ];
 }
 
-function historical(id: string, title: string): AdminEvaluationReport {
+function historical(id: string, title: string, status: AdminEvaluationReport['status'], evidence: ArchivedEvaluationEvidence): AdminEvaluationReport {
   return {
     id,
     source: 'archive',
     title,
     createdAt: '2026-08-01T00:00:00.000Z',
-    status: 'WARN',
-    model: 'fake',
+    status,
+    model: 'real',
     cases: [],
     durationMs: 0,
-    deterministic: placeholderResult(),
-    judge: { status: 'unavailable', retryCount: 0, behaviorScore: null, reason: 'Historical evidence only. Not measured in Admin Lite.' },
-    problems: [{ title: 'Historical report placeholder', evidence: 'Link GitHub evidence when milestone files are available.' }],
+    evidenceUrl: `https://github.com/ppipil/who-is-spy/blob/${evidence.sourceBranch}/${evidence.sourcePath}`,
+    archivedEvidence: evidence,
+    problems: [],
   };
-}
-
-function placeholderResult(): EvaluationResult {
-  return {
-    schemaVersion: 1,
-    configuration: { games: 0, seed: 42, model: 'fake' },
-    cases: [],
-    metrics: {
-      startedGames: 0,
-      completedGames: 0,
-      completionRate: 0,
-      descriptionAttempts: 0,
-      secretLeakRejectRate: 0,
-      duplicateRejectRate: 0,
-      invalidOutputRate: 0,
-      validVoteRate: 0,
-      retryRate: 0,
-      latencyMs: { p50: 0, p95: 0 },
-      tokenUsage: { input: 0, output: 0, total: 0, source: 'unavailable' },
-      byStrategyId: {},
-      descriptionHomogeneity: 0,
-      safety: { secretLeakOccurrences: 0, publicStateLeakOccurrences: 0, illegalStateOccurrences: 0 },
-    },
-    gate: { passed: false, failures: ['Not measured in Admin Lite'] },
-  };
-}
-
-function stripCodeFence(content: string): string {
-  return content.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
 }

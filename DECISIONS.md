@@ -139,3 +139,56 @@ Case 3(卧底 · 第3轮 · 后手位,公开描述偏狐狸特征):
 - 验证:`packages/server-node` 下 `npm run build` 通过;`npx vitest run server/admin-lite.test.ts server/evaluation/evaluation.test.ts` 为 2 文件 / 6 测试通过;`packages/web` 下 `npm run build` 通过;仓库根目录 `npm run contract:node` 为 28 通过 / 0 失败。未运行真实 DeepSeek。
 - 补充:本轮同时修正 canonical Normal/Nonsense `humanDescription` 已传入但未被 `driveGame()` 使用的问题;重新验证结果同上:server build、Admin/Evaluation 定向测试、web build、contract:node 均通过。
 - 补充:AI Judge adapter 已接入用户触发的 Admin Evaluation run:有 `DEEPSEEK_API_KEY` 时最多调用一次并失败 retry 1 次,成功后代码按 25/20/20/20/15 权重计算 AI Behavior Score;无 key/失败时标记 `unavailable`,不影响 engineering gate。Judge evidence 仅包含公开描述、公开投票理由与 deterministic metrics,不包含密词、角色或完整 prompt。验证:server build、Admin/Evaluation 定向测试、web build、contract:node 均通过。
+- 补充:AI Judge 不再在 Admin route 中手写 raw fetch;改为通过 `DeepSeekClient.completeJson('judge', ...)` 复用模型层 baseUrl/model/JSON parsing/错误分类。至少一个已完成且含公开描述/投票证据的 canonical case 即可调用 Judge;只有 Human Input Responsiveness 仍要求 Normal+Nonsense 都完成。评测固定使用 `雨伞`/`雨衣`,评测描述只禁止完整词,真人对局继续禁止完整词及其汉字。
+- 调试与验证:`EVALUATION_DEBUG=1` 时仅输出阶段、case 完成布尔值和模型 `task/attempt/errorType/httpStatus/causeCode/willRetry`,不输出 key、Prompt、题目词或模型内容;同时修正 Evaluation 包装层未转发 `DescriptionRequest` 的问题。定向测试为 7 文件 / 35 测试通过;`npm run test:node` 为 14 文件 / 59 测试通过;server build、web build 通过;`npm run contract:node` 为 28 通过 / 0 失败。本次验证未调用真实 DeepSeek。
+
+### Admin Trace 筛选与状态语义修复(分支 `feat/admin-lite`)
+
+- 目的:把 Trace 运行列表从 runId/gameId/round/agent 等内部字段筛选收敛为统一 ID + 来源 source 筛选;旧 trace 如果只有 running lifecycle 且最后事件已经超过 10 分钟,前端显示为“未关闭旧记录 stale”,避免误导成正在运行。
+- 验证:`npm run build --workspace packages/server-node` 通过;`npm run build --workspace packages/web` 通过;`npm test --workspace packages/server-node -- server/admin-lite.test.ts` 为 1 文件 / 6 测试通过。
+
+### Admin Trace 文案收敛与来源归类修复(分支 `feat/admin-lite`)
+
+- 目的:Trace 时间线与提示词检查器不再把同义中文/英文标签同时显示,减少提示词面板和时间线节点溢出;缺少来源的历史 trace 不再默认显示成网页对局,GameEngine 统一给同一局所有 trace 事件盖上真实来源。
+- 范围:网页端显式标记为 `USER_GAME/web`;未显式传来源的测试型 GameEngine 默认为 `TEST/test`;故障注入 CLI 标记为 `FAULT_RUN/cli`;前端增加未知来源显示和 prompt 文本换行/框内滚动约束。
+- 验证:`npm run build --workspace packages/server-node` 通过;`npm run build --workspace packages/web` 通过;`npm test --workspace packages/server-node -- server/core/game-engine.test.ts server/fault/fault-injection.test.ts server/trace/trace-lite.test.ts server/admin-lite.test.ts server/evaluation/evaluation.test.ts` 为 5 文件 / 22 测试通过;`npm test --workspace packages/server-node` 为 14 文件 / 58 测试通过;`npm run contract:node` 为 28 通过 / 0 失败。
+
+
+### Admin Evaluation 五维独立 Judge 与 Trace 可观测性(分支 `feat/admin-lite`)
+
+- 目的:Persona Adherence、Semantic Diversity、Context Utilization、Human Input Responsiveness、Exposure Control 改为五次互相隔离的 Judge 维度；任一维失败只把该维标成 `Unavailable`，其余维度与 Engineering Gate 保持有效。只有 5/5 可用时为 Full AI Behavior Score，否则按当前可用维度权重归一化计算 Partial Score。
+- 方法:五个 definition 各自声明 prompt version、schema 实例、0–10 rubric、25/20/20/20/15 权重和最小 evidence selector，共用一个 dimension runner；底层仍调用 `GameModel.completeJson('judge', ...)`，复用 `DeepSeekClient` 的 transport、JSON parser、错误分类和 retry。每维 schema 单独要求非空 `reason/evidence/summary` 且包含中文，system prompt 强制简体中文。Persona 只收 strategy + descriptions，Semantic 只收 descriptions + lexical proxy，Context 只收 Human input + 有序 descriptions，Human Responsiveness 只在 Normal/Nonsense 都完成时收配对摘要，Exposure 只收 safety/quality metrics + descriptions；不向 Judge 传 vote reasons、角色或密词，固定题目词在模型上下文前脱敏。
+- Trace:每维使用独立 `promptTemplateVersion` 和 `ai-judge-<dimension>` agentId，Prompt Inspector 只保存安全计数/字段摘要，真实 evidence 仅参与模型请求与 prompt hash；每维 schema retry、成功/失败与输出单独记录。
+- 验证:`npm.cmd run build` 前后端通过；`npm.cmd test --workspace packages/server-node -- --run server/admin-lite.test.ts` 为 1 文件 / 8 测试通过；`npm.cmd run test:node` 为 15 文件 / 65 测试通过（含 provider、quality-gate、fault mock/FakeModel 覆盖）；`npm.cmd run contract:node` 为 28 通过 / 0 失败。FakeModel 覆盖单 Case 4/5 Partial、双 Case 5/5 Full、Semantic 英文/schema 连续失败但另外四维成功，以及五维独立 prompt/trace/evidence keys/题目词脱敏。本轮未调用 DeepSeek，未执行真实 Evaluation，未 commit。
+
+### Admin Evaluation 最终收尾：Judge 评级一致性与本地记录折叠(分支 `feat/admin-lite`)
+
+- Judge:五个独立 prompt 共用同一评分表：9–10 Excellent/优秀、7–8 Good/良好、5–6 Average/一般、3–4 Weak/较弱、0–2 Poor/很差；维度 score 限定为 0–10 整数，reason/summary 必须分别显式包含与 score 对应的唯一“评级：…”中文标签。schema 会拒绝缺失或冲突标签并仅重试/停用该维度，现有五维权重、Partial 归一化和仅 5/5 为 Full 的逻辑未改。
+- History:Local Admin Runs 继续使用后端最新优先排序，默认只渲染前 5 条；存在更多记录时显示 `Show more` 并一次展开剩余本地记录。Archived Milestones 数据、顺序和渲染未改。
+- Trace 展示收尾:删除 Evaluation run 顶部“评测固定关键词 Evaluation fixture”横幅及其专用样式；底层 `fixtureWords` trace 数据保留，不改变追踪、评测默认词或可编辑题目能力。删除后 `npm.cmd run build --workspace packages/web` 通过。
+- 轮次布局收尾:Evaluation rounds 的标题与 72px select 使用明确两列，说明文字跨越整行；720px 以下改为单列堆叠，避免通用 label 的第二列规则把说明或标题挤进选择框区域。`npm.cmd run build --workspace packages/web` 通过，`git diff --check -- packages/web/src/admin/evaluation/evaluation.css` 无 whitespace error。
+- 验证:`npm.cmd test --workspace packages/server-node -- --run server/admin-lite.test.ts` 为 1 文件 / 9 测试通过，新增 score=5 但文字为“优秀”时 Persona 单维两次 schema 失败、其余四维保持可用的覆盖；provider/quality-gate/prompt/fault/Admin 定向测试为 5 文件 / 35 测试通过；`npm.cmd run build` 前后端通过；`npm.cmd run test:node` 为 15 文件 / 66 测试通过；`npm.cmd run contract:node` 为 28 通过 / 0 失败。未调用 DeepSeek，未执行真实 Evaluation，未 commit。
+### Admin Evaluation 可编辑配置与 DeepSeek 前端入口(分支 `feat/admin-lite`)
+
+- 目的:Evaluation runner 不再把题目和 Human 输入锁死；默认保留 `雨伞/雨衣`、Normal/Nonsense 文案，但 Admin 用户可编辑平民词、卧底词、每个 Case 的 Human 输入，并选择每个已选 Case 重复 1–5 轮。页面显示 DeepSeek 实际 model 与 configured/Ready 状态。
+- 后端:`POST /api/admin/evaluations` 接收 `wordPair`、`caseInputs`、`rounds`，校验两词非空且不同、Human 输入长度和轮次边界；Fake 始终使用 `FakeGameModel`，Real 始终创建环境配置的 `DeepSeekClient`。自定义词对同时传给 `runEvaluation` 和 Judge 脱敏，不写入公开报告或 trace。`GET /api/admin/evaluation/cases` 仅返回无密钥的 provider model/configured 状态。
+- 前端:保持 Evaluation 三栏与 Report History 结构，只在 Run Evaluation 卡片加入词对 input、Case textarea、轮次 select 和 DeepSeek Ready 提示；运行期间显示实际 games=`selected cases × rounds`，刷新 History 不覆盖用户当前编辑值。
+- Fake 冒烟:通过前端 Vite proxy 向 `http://localhost:5173/api/admin/evaluations` 提交 `model=fake`、单 Normal Case、`rounds=1`、`judgeEnabled=false`；报告 `eval-62b69340-8194-45bd-b148-cc932e3ade2b` 为 1/1 completed、Gate PASS、Judge disabled。同一配置接口只读确认 `deepseek-chat` configured=true，未调用 DeepSeek。
+- DeepSeek 网络诊断:用户前端报告 `eval-7152ceeb-621f-4f79-a8f1-aa7c7610b8ad` 的两个 game 都在 `ai-1 describe` 失败，脱敏 trace 为每局 4 次 `errorType=network`、无 HTTP status、80–260ms 内失败；case error 为“AI 描述失败：网络不可用”。`Resolve-DnsName` 成功，TCP 443 成功，PowerShell 无鉴权 HEAD 返回 401；同机 Node 22 原生 fetch 无代理时报 `ECONNRESET`，`node --use-env-proxy` 无鉴权 HEAD 返回 401，确认根因为 Node 未使用现有 HTTP(S) proxy。
+- 代理修复:`packages/server-node` 的 dev/start 改为 Node 22 官方 `--use-env-proxy` 启动；运行中的前端配置接口返回 `deepseek-chat / configured=true / envProxyEnabled=true`，页面区分 Configured 与 Proxy on/off。修复后只重启并验证无鉴权连通性，未再次提交 DeepSeek Evaluation。
+- 验证:`npm.cmd run build` 前后端通过；Admin Lite 定向测试 1 文件 / 8 测试通过，并覆盖自定义 `风筝/气球`、自定义 Human 输入和每 Case 两轮；`npm.cmd run test:node` 为 15 文件 / 65 测试通过；`npm.cmd run contract:node` 为 28 通过 / 0 失败。未执行真实模型评测，未 commit。
+
+### Evaluation Provider Token / Cost(分支 `feat/admin-lite`)
+
+- 目的:补齐任务书要求的 Token 与成本指标；不把 FakeModel 的本地调用显示成 0 成本，也不对未知模型猜价。
+- 方法:`DeepSeekClient` 从成功 HTTP 响应的 `usage` 读取 prompt/completion/total 和 cache hit/miss tokens，通过独立 telemetry sink 上报，不改变 `describe/vote/review` 的业务返回；Evaluation accumulator 覆盖游戏调用及可选 Judge 调用。成本优先使用三个环境变量覆盖，否则只对 provider 实际返回的官方 `deepseek-v4-flash` / `deepseek-v4-pro` 家族按 UTC 峰谷价格计算，未知模型只报告 Token、Cost 保持 unavailable。价格于 2026-08-24 对照 DeepSeek 官方 Models & Pricing 页面确认。
+- 真实验证:先用最小官方请求确认响应包含 usage(34 input / 5 output / 39 total，实际模型 `deepseek-v4-flash`)；随后通过 Admin API 跑 1 个真实 canonical Case、关闭 Judge，报告 `eval-bb30f669-bda3-4587-90c7-2bbec59a4ff0` PASS，13 次计费响应，10,724 input / 845 output / 11,569 total，官方 peak 成本 `$0.00343473`，每局同值。首次完整 Case 因四次 network failure 明确 FAIL，未错误生成 Token/Cost。
+- 验证:`packages/server-node` build 通过；`packages/web` build 通过；provider/quality/prompt/fault/evaluation/pricing/admin 定向测试 7 文件 / 41 测试通过；`npm run test:node` 15 文件 / 65 测试通过；`npm run contract:node` 28 通过 / 0 失败。
+
+### Admin Evaluation M1–M6 真实归档证据(分支 `feat/admin-lite`)
+
+- 来源：通过 `git show <branch>:<path>` 实际读取 `eval/m1-real-smoke:docs/evidence/m1-baseline/summary.md`、`eval/m2-persona:docs/evidence/m2-persona/summary.md`、`eval/m3-sequential:docs/evidence/m3-sequential/summary.md`、`eval/m4-quality-gate:docs/evidence/m4-quality-gate/summary.md`、`eval/m5-reliability:docs/evidence/m5-reliability/summary.md`、`eval/m6-final-comparison:docs/evidence/m6-final-comparison/summary.md`。M1–M6 的 version/stage、evaluated commit、model、games/seeds、completion、valid vote、homogeneity、latency、token/cost、gate/result 和阶段结论来自这些 summary，未重新运行历史版本。
+- 展示：归档报告使用独立 `archivedEvidence`，不再构造 FakeModel、0% 或 gate FAIL 的占位 `EvaluationResult`；M4 summary 未报告的 homogeneity，以及 M5 未汇总的 homogeneity、latency、provider token/cost 显示 `Not measured`。M1 的 3-game smoke token/cost 与单独 1-game usage smoke 明确分开。M0 不生成独立 Evaluation Report，official baseline 通过 M1 的 `7d98e19` 来源和 M6 paired baseline 展示。当前 Canonical Eval 本地报告保持不变。
+- 链接：六条记录均使用 `https://github.com/ppipil/who-is-spy/blob/<branch>/<path>/summary.md`，在 History 和 Detail 提供 `View Evidence / GitHub`。
+- 验证：仓库根目录 `npm.cmd run build` 通过（Web `tsc --noEmit` + Vite、Node `tsc --noEmit`）；`npm.cmd test --workspace packages/server-node -- --run server/admin-lite.test.ts` 为 1 文件 / 8 测试通过；`npm.cmd run contract:node` 为 28 通过 / 0 失败；`git diff --check` 无 whitespace error。未调用真实 DeepSeek，未重跑 M1–M6。
+- 默认开关：Admin Console 现在默认开启，只有显式设置 `ENABLE_ADMIN_CONSOLE=0` 才关闭；根 `.env` 与 `.env.example` 记录 `ENABLE_ADMIN_CONSOLE=1`。运行中的 `/api/admin/evaluations` 返回 M1–M6 共 6 条归档记录；`npm.cmd run build --workspace packages/server-node` 通过，Admin Lite 定向测试仍为 1 文件 / 8 测试通过。

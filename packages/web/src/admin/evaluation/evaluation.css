@@ -87,6 +87,78 @@
   color: rgba(33, 30, 25, 0.65);
 }
 
+.runner-card input[type='text'],
+.runner-card input:not([type]),
+.runner-card textarea,
+.runner-card select {
+  min-width: 0;
+  border: 1px solid rgba(33, 30, 25, 0.16);
+  border-radius: 8px;
+  padding: 8px 9px;
+  background: rgba(255, 255, 255, 0.68);
+  color: inherit;
+  font: inherit;
+}
+
+.runner-card textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.runner-card textarea:disabled {
+  opacity: 0.48;
+}
+
+.provider-status {
+  color: #9a3125;
+  font-size: 12px;
+}
+
+.provider-status.is-ready {
+  color: #2f6f43;
+}
+
+.word-editor label {
+  grid-template-columns: minmax(96px, auto) minmax(0, 1fr);
+  align-items: center;
+}
+
+.case-editor {
+  display: grid;
+  gap: 6px;
+  border: 1px solid rgba(33, 30, 25, 0.1);
+  border-radius: 10px;
+  padding: 9px;
+  background: rgba(250, 247, 240, 0.48);
+}
+
+.case-toggle {
+  grid-template-columns: auto minmax(0, 1fr) !important;
+}
+
+.rounds-editor {
+  margin-bottom: 14px;
+  grid-template-columns: minmax(0, 1fr) 72px !important;
+  align-items: center !important;
+}
+
+.rounds-editor > span {
+  min-width: 0;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.rounds-editor > select {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.runner-card .rounds-editor > small {
+  grid-column: 1 / -1;
+}
+
 .runner-card button {
   width: 100%;
   padding: 10px 12px;
@@ -200,6 +272,60 @@
   background: rgba(142, 56, 37, 0.08);
 }
 
+.history-card button.history-show-more {
+  display: block;
+  border-style: dashed;
+  background: transparent;
+  color: #8e3825;
+  text-align: center;
+  font-weight: 700;
+}
+
+.history-entry {
+  display: grid;
+  gap: 4px;
+}
+
+.history-entry > a,
+.report-evidence-link {
+  color: #8e3825;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.history-entry > a:hover,
+.report-evidence-link:hover {
+  text-decoration: underline;
+}
+
+.archived-report-card .report-evidence-link {
+  display: inline-block;
+  margin-top: 12px;
+}
+
+.archive-summary-grid,
+.archive-metric-grid {
+  margin-top: 14px;
+}
+
+.archive-conclusion,
+.archive-source {
+  margin: 0;
+  color: rgba(33, 30, 25, 0.78);
+  line-height: 1.55;
+}
+
+.archive-source code {
+  overflow-wrap: anywhere;
+}
+
+.not-measured-list {
+  margin: 0;
+  padding-left: 20px;
+  color: rgba(33, 30, 25, 0.78);
+}
+
 @media (max-width: 1100px) {
   .evaluation-layout {
     grid-template-columns: 1fr;
@@ -226,6 +352,16 @@
   .history-columns {
     grid-template-columns: 1fr;
   }
+
+  .rounds-editor {
+    grid-template-columns: 1fr !important;
+    align-items: stretch !important;
+  }
+
+  .rounds-editor > select,
+  .runner-card .rounds-editor > small {
+    grid-column: 1;
+  }
 }
 
 .judge-breakdown {
@@ -240,4 +376,20 @@
   margin: 0;
   color: rgba(33, 30, 25, 0.72);
   font-size: 13px;
+}
+
+.judge-dimension {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  align-content: start;
+}
+
+.judge-dimension p {
+  line-height: 1.45;
+}
+
+.judge-overall-summary {
+  border-top: 1px solid rgba(33, 30, 25, 0.1);
+  padding-top: 10px;
 }

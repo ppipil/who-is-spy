@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch server/index.ts",
-    "start": "NODE_ENV=production tsx server/index.ts",
+    "dev": "node --use-env-proxy --watch --import tsx server/index.ts",
+    "start": "node --use-env-proxy --import tsx server/index.ts",
     "build": "tsc --noEmit",
     "eval": "tsx server/evaluation/eval-cli.ts",
     "persona-probe": "tsx server/persona/persona-probe.ts",

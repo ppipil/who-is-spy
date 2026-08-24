@@ -15,7 +15,8 @@ const voteInput = z.object({ targetId: z.string().min(1) });
 
 export function createApp(model: GameModel = new DeepSeekClient()) {
   const app = express();
-  const runtimeTrace = process.env.ENABLE_ADMIN_CONSOLE === '1' ? createAdminRuntimeTraceSink() : new InMemoryTraceSink();
+  const adminConsoleEnabled = process.env.ENABLE_ADMIN_CONSOLE !== '0';
+  const runtimeTrace = adminConsoleEnabled ? createAdminRuntimeTraceSink() : new InMemoryTraceSink();
   const promptTraceRecords: PromptDebugRecord[] = [];
   const envTrace = createTraceSinkFromEnv();
   const traceSink = stampTraceOrigin(
@@ -26,7 +27,11 @@ export function createApp(model: GameModel = new DeepSeekClient()) {
     promptTraceRecords.push(record);
     if (promptTraceRecords.length > 500) promptTraceRecords.splice(0, promptTraceRecords.length - 500);
   });
-  const engine = new GameEngine(model, Math.random, undefined, traceSink);
+  const engine = new GameEngine(model, Math.random, undefined, traceSink, {
+    sourceType: 'USER_GAME',
+    entrypoint: 'web',
+    modelKind: model.model === 'fake' ? 'fake' : model.isConfigured() ? 'real' : 'none',
+  });
   const progressStreams = new Map<string, Set<express.Response>>();
   engine.subscribeToPublicProgress((event) => {
     const payload = `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
@@ -113,9 +118,9 @@ export function createApp(model: GameModel = new DeepSeekClient()) {
     }
   });
 
-  if (process.env.ENABLE_ADMIN_CONSOLE === '1') {
+  if (adminConsoleEnabled) {
     app.use('/api/admin', createAdminTraceRouter({ model, runtimeTrace, promptTraceRecords }));
-    app.use('/api/admin', createAdminEvaluationRouter(model));
+    app.use('/api/admin', createAdminEvaluationRouter(model, runtimeTrace));
   } else {
     app.use('/api/admin', (_request, response) => response.status(404).json({ error: 'admin console disabled' }));
   }

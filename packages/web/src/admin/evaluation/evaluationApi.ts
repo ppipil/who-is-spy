@@ -1,4 +1,4 @@
-import type { EvaluationCaseOption, EvaluationHistoryResponse, EvaluationReport, StartEvaluationInput } from './evaluationTypes';
+import type { EvaluationCasesResponse, EvaluationHistoryResponse, EvaluationReport, StartEvaluationInput } from './evaluationTypes';
 
 async function adminRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -6,12 +6,12 @@ async function adminRequest<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
   });
   const payload = (await response.json()) as T & { error?: string };
-  if (!response.ok) throw new Error(payload.error ?? 'Evaluation request failed');
+  if (!response.ok) throw new Error(payload.error ?? '评测请求失败 Evaluation request failed');
   return payload;
 }
 
 export const evaluationApi = {
-  cases: () => adminRequest<{ cases: EvaluationCaseOption[] }>('/api/admin/evaluation/cases'),
+  cases: () => adminRequest<EvaluationCasesResponse>('/api/admin/evaluation/cases'),
   history: () => adminRequest<EvaluationHistoryResponse>('/api/admin/evaluations'),
   start: (input: StartEvaluationInput) => adminRequest<{ report: EvaluationReport }>('/api/admin/evaluations', {
     method: 'POST',
