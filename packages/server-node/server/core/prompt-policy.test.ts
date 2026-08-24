@@ -88,6 +88,7 @@ describe('prompt policy', () => {
     });
     const user = JSON.parse(prompt.messages[1].content);
     expect(user.persona.id).toBe('intuitive');
+    expect(user.forbiddenCharacters).toEqual(expect.arrayContaining(['地', '铁']));
     expect(user.persona.displayName).toBe('直觉敏锐');
     expect(prompt.metadata.strategyGuidance).toBe(user.persona.describe);
     expect(JSON.stringify(prompt.messages)).not.toContain('DEEPSEEK_API_KEY');
@@ -111,6 +112,8 @@ describe('prompt policy', () => {
       expect(record.agentId).toBe('ai-1');
       expect(record.promptTemplateVersion).toBe(DESCRIBE_PROMPT_VERSION);
       const serialized = JSON.stringify(record.messages);
+      const debugUser = JSON.parse(record.messages[1].content);
+      expect(debugUser.forbiddenCharacters).toEqual(['<REDACTED>', '<REDACTED>']);
       expect(serialized).toContain('<REDACTED>');
       expect(serialized).not.toContain('地铁');
       expect(serialized).not.toContain('DEEPSEEK_API_KEY');

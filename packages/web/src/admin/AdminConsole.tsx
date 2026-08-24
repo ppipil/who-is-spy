@@ -10,12 +10,12 @@ export function AdminConsole() {
   return (
     <div className="admin-shell">
       <nav className="admin-nav">
-        <div className="admin-brand">潜词局 Admin</div>
+        <div className="admin-brand">潜词局管理台 Admin</div>
         <div className="admin-tabs">
-          <button className={page === 'trace' ? 'is-active' : ''} onClick={() => setPage('trace')}>Trace</button>
-          <button className={page === 'evaluation' ? 'is-active' : ''} onClick={() => setPage('evaluation')}>Evaluation</button>
+          <button className={page === 'trace' ? 'is-active' : ''} onClick={() => setPage('trace')}>追踪 Trace</button>
+          <button className={page === 'evaluation' ? 'is-active' : ''} onClick={() => setPage('evaluation')}>评测 Evaluation</button>
         </div>
-        <a href="/">Game</a>
+        <a href="/">返回游戏 Game</a>
       </nav>
       {page === 'trace' ? <TracePage /> : <EvaluationPage />}
     </div>

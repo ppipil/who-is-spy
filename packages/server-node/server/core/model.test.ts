@@ -14,6 +14,16 @@ describe('DeepSeekClient error taxonomy', () => {
     expect(transport.calls).toBe(2);
   });
 
+  it('classifies an aborted TypeError as timeout when the client deadline fires', async () => {
+    const transport = abortingTransport();
+    const client = new DeepSeekClient({ apiKey: 'test-key', transport, model: 'test-model', timeoutMs: 5, retryDelayMs: 0 });
+
+    await expect(client.describe(context())).rejects.toMatchObject({
+      diagnostic: { errorType: 'timeout', retryable: true, attempt: 4 },
+    });
+    expect(transport.calls).toBe(4);
+  });
+
   it('classifies HTTP 429 as retryable rate_limit', async () => {
     const transport = sequenceTransport([
       () => Promise.resolve(textResponse(429)),
@@ -70,15 +80,39 @@ describe('DeepSeekClient error taxonomy', () => {
     const networkTransport = sequenceTransport([
       () => Promise.reject(new TypeError('network down')),
       () => Promise.reject(new TypeError('network down')),
+      () => Promise.reject(new TypeError('network down')),
+      () => Promise.reject(new TypeError('network down')),
     ]);
     await expect(clientWith(networkTransport).describe(context())).rejects.toMatchObject({
-      diagnostic: { errorType: 'network', retryable: true, attempt: 2 },
+      diagnostic: { errorType: 'network', retryable: true, attempt: 4 },
+    });
+    expect(networkTransport.calls).toBe(4);
+  });
+  it('captures provider token usage without changing the domain response', async () => {
+    const transport = sequenceTransport([() => Promise.resolve(rawContentResponse(
+      JSON.stringify({ description: '含蓄安全描述' }),
+      { prompt_tokens: 120, completion_tokens: 30, total_tokens: 150, prompt_cache_hit_tokens: 80, prompt_cache_miss_tokens: 40 },
+      'deepseek-v4-flash',
+    ))]);
+    const client = clientWith(transport);
+    const usages: import('./model.js').ModelUsage[] = [];
+    client.setUsageSink((usage) => usages.push(usage));
+
+    await expect(client.describe(context())).resolves.toBe('含蓄安全描述');
+    expect(usages).toHaveLength(1);
+    expect(usages[0]).toMatchObject({
+      model: 'deepseek-v4-flash',
+      promptTokens: 120,
+      completionTokens: 30,
+      totalTokens: 150,
+      promptCacheHitTokens: 80,
+      promptCacheMissTokens: 40,
     });
   });
 });
 
 function clientWith(transport: ModelTransport & { calls: number }): DeepSeekClient {
-  return new DeepSeekClient({ apiKey: 'test-key', transport, model: 'test-model' });
+  return new DeepSeekClient({ apiKey: 'test-key', transport, model: 'test-model', retryDelayMs: 0 });
 }
 
 function sequenceTransport(steps: Array<() => Promise<Response>>): ModelTransport & { calls: number } {
@@ -91,12 +125,27 @@ function sequenceTransport(steps: Array<() => Promise<Response>>): ModelTranspor
   return transport;
 }
 
+function abortingTransport(): ModelTransport & { calls: number } {
+  const transport = ((_url: string | URL | Request, init?: RequestInit) => {
+    transport.calls += 1;
+    return new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(new TypeError('fetch failed')), { once: true });
+    });
+  }) as ModelTransport & { calls: number };
+  transport.calls = 0;
+  return transport;
+}
+
 function jsonResponse(value: unknown): Response {
   return rawContentResponse(JSON.stringify(value));
 }
 
-function rawContentResponse(content: string): Response {
-  return new Response(JSON.stringify({ choices: [{ message: { content } }] }), {
+function rawContentResponse(
+  content: string,
+  usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number; prompt_cache_hit_tokens?: number; prompt_cache_miss_tokens?: number },
+  model?: string,
+): Response {
+  return new Response(JSON.stringify({ model, choices: [{ message: { content } }], usage }), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
   });

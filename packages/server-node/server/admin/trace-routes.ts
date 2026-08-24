@@ -37,8 +37,14 @@ export function createAdminTraceRouter(options: AdminTraceRouterOptions): Router
 }
 
 function filterTraceEvents(events: RuntimeTraceEvent[], query: Record<string, unknown>): RuntimeTraceEvent[] {
-  const { gameId, round, agent, task, errorType, runId } = query;
+  const { id, sourceType, gameId, round, agent, task, errorType, runId } = query;
   let filtered = events;
+  if (typeof id === 'string' && id) {
+    filtered = filtered.filter((event) => event.runId === id || event.gameId === id);
+  }
+  if (typeof sourceType === 'string' && sourceType) {
+    filtered = filtered.filter((event) => event.sourceType === sourceType);
+  }
   if (typeof gameId === 'string' && gameId) filtered = filtered.filter((event) => event.gameId === gameId);
   if (typeof runId === 'string' && runId) {
     filtered = filtered.filter((event) => event.runId === runId || event.gameId === runId);
@@ -57,8 +63,11 @@ function filterTraceEvents(events: RuntimeTraceEvent[], query: Record<string, un
 }
 
 function filterPromptRecords(records: PromptDebugRecord[], query: Record<string, unknown>): PromptDebugRecord[] {
-  const { gameId, round, agentId, task, runId } = query;
+  const { id, gameId, round, agentId, task, runId } = query;
   let filtered = records;
+  if (typeof id === 'string' && id) {
+    filtered = filtered.filter((record) => record.runId === id || record.gameId === id);
+  }
   if (typeof gameId === 'string' && gameId) filtered = filtered.filter((record) => record.gameId === gameId);
   if (typeof runId === 'string' && runId) {
     filtered = filtered.filter((record) => record.runId === runId || record.gameId === runId);

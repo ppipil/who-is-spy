@@ -41,22 +41,19 @@ export interface PromptTraceRecord {
 }
 
 export interface TraceFilters {
-  gameId: string;
-  runId: string;
-  round: string;
-  agent: string;
-  task: string;
-  errorType: string;
+  id: string;
+  sourceType: string;
 }
 
 export interface TraceRunRow {
   runId: string;
   gameId?: string;
   sourceType: string;
-  status: 'running' | 'completed' | 'failed';
+  status: 'running' | 'completed' | 'failed' | 'stale';
   createdAt: string;
   modelKind?: string;
   durationMs: number;
+  fixtureWords?: string[];
   events: RuntimeEvent[];
 }
 

@@ -3,7 +3,7 @@ import type { AdminStatus, PromptTraceRecord, RuntimeEvent, TraceFilters } from 
 async function adminRequest<T>(path: string): Promise<T> {
   const response = await fetch(path, { headers: { 'Content-Type': 'application/json' } });
   const payload = (await response.json()) as T & { error?: string };
-  if (!response.ok) throw new Error(payload.error ?? 'Admin request failed');
+  if (!response.ok) throw new Error(payload.error ?? '管理台请求失败');
   return payload;
 }
 
@@ -18,6 +18,6 @@ export const traceApi = {
   status: () => adminRequest<AdminStatus>('/api/admin/status'),
   traces: (filters: TraceFilters) =>
     adminRequest<{ count: number; events: RuntimeEvent[] }>(`/api/admin/traces${queryString(filters)}`),
-  promptTraces: (filters: Pick<TraceFilters, 'gameId' | 'runId' | 'round' | 'task'> & { agentId: string }) =>
+  promptTraces: (filters: TraceFilters) =>
     adminRequest<{ count: number; records: PromptTraceRecord[] }>(`/api/admin/prompt-traces${queryString(filters)}`),
 };

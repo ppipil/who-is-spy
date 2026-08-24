@@ -2,12 +2,13 @@ import { randomUUID } from 'node:crypto';
 import { getAgentStrategy } from './agent-strategy.js';
 import { buildAgentContext } from './agent-context.js';
 import {
+  containsSecretLeak,
   DescriptionQualityError,
   DescriptionQualityGate,
   normalizeDescription,
   repairGuidance,
-  secretLeakTerms,
   type DescriptionQualityEvent,
+  type DescriptionSecretPolicy,
   type DescriptionQualityViolation,
 } from './description-quality.js';
 import type { GameModel } from './model.js';
@@ -21,8 +22,14 @@ import type {
   Role,
   Vote,
 } from './types.js';
-import { recordTraceRun, type TraceSink } from '../trace/trace.js';
+import { recordTraceRun, stampTraceOrigin, type TraceOrigin, type TraceSink } from '../trace/trace.js';
 import { chooseWordPair } from './words.js';
+
+export interface CreateGameOptions {
+  wordPair?: readonly [string, string];
+  descriptionSecretPolicy?: DescriptionSecretPolicy;
+  traceFixtureWords?: readonly string[];
+}
 
 const AI_PROFILES = [
   { name: '阿序', avatar: '序', strategyId: 'cautious' },
@@ -62,18 +69,27 @@ export class GameEngine {
   private readonly qualityGate = new DescriptionQualityGate();
   private readonly descriptionResume = new Map<string, DescriptionResumeState>();
   private readonly descriptionGenerationActive = new Set<string>();
+  private readonly descriptionSecretPolicies = new Map<string, DescriptionSecretPolicy>();
+  private readonly traceFixtureWords = new Map<string, string[]>();
+  private readonly traceSink?: TraceSink;
 
   constructor(
     private readonly model: GameModel,
     private readonly random: () => number = Math.random,
     private readonly onQualityViolation: (event: DescriptionQualityEvent) => void = () => undefined,
-    private readonly traceSink?: TraceSink,
+    traceSink?: TraceSink,
+    private readonly traceOrigin: TraceOrigin = {
+      sourceType: 'TEST',
+      entrypoint: 'test',
+      modelKind: model.model === 'fake' ? 'fake' : model.isConfigured() ? 'real' : 'none',
+    },
   ) {
-    if (traceSink) this.model.setTraceSink?.(traceSink);
+    this.traceSink = traceSink ? stampTraceOrigin(traceSink, this.traceOrigin) : undefined;
+    if (this.traceSink) this.model.setTraceSink?.(this.traceSink);
   }
 
-  createGame(): PublicGameState {
-    const pair = chooseWordPair(this.random);
+  createGame(options: CreateGameOptions = {}): PublicGameState {
+    const pair = options.wordPair ?? chooseWordPair(this.random);
     const undercoverIndex = Math.floor(this.random() * 5);
     const swapWords = this.random() > 0.5;
     const civilianWord = pair[swapWords ? 1 : 0];
@@ -93,6 +109,8 @@ export class GameEngine {
       };
     });
     const id = randomUUID();
+    this.descriptionSecretPolicies.set(id, options.descriptionSecretPolicy ?? 'own_word_characters');
+    if (options.traceFixtureWords) this.traceFixtureWords.set(id, [...options.traceFixtureWords]);
     const game: GameState = {
       id,
       phase: 'describing',
@@ -118,10 +136,12 @@ export class GameEngine {
     recordTraceRun(this.traceSink, {
       runId: id,
       gameId: id,
-      sourceType: 'USER_GAME',
-      entrypoint: 'web',
+      sourceType: this.traceOrigin.sourceType,
+      entrypoint: this.traceOrigin.entrypoint,
+      modelKind: this.traceOrigin.modelKind,
       status: 'running',
       createdAt: new Date(game.createdAt).toISOString(),
+      ...(this.traceFixtureWords.get(id) ? { fixtureWords: this.traceFixtureWords.get(id) } : {}),
     });
     return this.toPublic(game);
   }
@@ -148,7 +168,8 @@ export class GameEngine {
     if (description.length < 2 || description.length > 60) {
       throw new GameRuleError('描述需为 2–60 个字符');
     }
-    if (secretLeakTerms(game.players.map((player) => player.word)).some((term) => description.includes(term))) {
+    const secretPolicy = this.descriptionSecretPolicies.get(game.id) ?? 'own_word_characters';
+    if (containsSecretLeak(description, human.word, game.players.map((player) => player.word), secretPolicy)) {
       throw new GameRuleError('不能提到题目词或题目里的字');
     }
     if (game.descriptions.some((item) => item.round === game.round && item.playerId === human.id)) {
@@ -305,6 +326,7 @@ export class GameEngine {
     const agents = this.pendingDescriptionAgents(game);
     const outputs: Description[] = [];
     const allSecrets = [...new Set(game.players.map((player) => player.word))];
+    const secretPolicy = this.descriptionSecretPolicies.get(game.id) ?? 'own_word_characters';
     for (const agent of agents) {
       const context = buildAgentContext(game, agent);
       const strategy = getAgentStrategy(context.identity.strategyId);
@@ -318,14 +340,17 @@ export class GameEngine {
           await this.model.describe(context, {
             attempt,
             ...(violation
-              ? { repair: { violationType: violation.type, guidance: repairGuidance(violation) } }
+              ? { repair: { violationType: violation.type, guidance: repairGuidance(violation, secretPolicy) } }
               : {}),
+            secretPolicy,
           }),
         );
         violation =
           this.qualityGate.check({
             text,
+            ownSecret: agent.word,
             allSecrets,
+            secretPolicy,
             acceptedSameRound,
             duplicateSimilarityThreshold: strategy.qualityPolicy.duplicateSimilarityThreshold,
           }) ?? undefined;
@@ -551,10 +576,12 @@ export class GameEngine {
       recordTraceRun(this.traceSink, {
         runId: game.id,
         gameId: game.id,
-        sourceType: 'USER_GAME',
-        entrypoint: 'web',
+        sourceType: this.traceOrigin.sourceType,
+        entrypoint: this.traceOrigin.entrypoint,
+        modelKind: this.traceOrigin.modelKind,
         status: 'completed',
         createdAt: new Date().toISOString(),
+        ...(this.traceFixtureWords.get(game.id) ? { fixtureWords: this.traceFixtureWords.get(game.id) } : {}),
       });
       return;
     }

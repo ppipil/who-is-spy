@@ -47,7 +47,8 @@ function printHumanTable(result: EvaluationResult): void {
     ['duplicateRejectRate', formatRate(metrics.duplicateRejectRate)],
     ['retryRate', formatRate(metrics.retryRate)],
     ['latency p50/p95 ms', `${metrics.latencyMs.p50}/${metrics.latencyMs.p95}`],
-    ['tokens input/output/total', `${metrics.tokenUsage.input}/${metrics.tokenUsage.output}/${metrics.tokenUsage.total}`],
+    ['tokens input/output/total', `${displayMetric(metrics.tokenUsage.input)}/${displayMetric(metrics.tokenUsage.output)}/${displayMetric(metrics.tokenUsage.total)}`],
+    ['cost total/per game USD', `${displayMetric(metrics.cost.totalUsd)}/${displayMetric(metrics.cost.perGameUsd)} (${metrics.cost.source})`],
     ['descriptionHomogeneity', String(metrics.descriptionHomogeneity)],
     ['gate', result.gate.passed ? 'PASS' : `FAIL: ${result.gate.failures.join('; ')}`],
   ];
@@ -66,6 +67,10 @@ function printHumanTable(result: EvaluationResult): void {
       formatRate(group.voteAccuracy),
     );
   }
+}
+
+function displayMetric(value: number | null): string {
+  return value === null ? 'unavailable' : String(value);
 }
 
 function formatRate(value: number): string {

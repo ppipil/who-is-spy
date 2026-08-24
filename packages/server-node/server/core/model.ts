@@ -45,20 +45,33 @@ export class ModelError extends Error {
   }
 }
 
-interface ChatMessage {
+export interface ChatMessage {
   role: 'system' | 'user';
   content: string;
 }
 
 export type ModelTransport = typeof fetch;
 
+export interface ModelUsage {
+  model: string;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  promptCacheHitTokens: number;
+  promptCacheMissTokens: number;
+  recordedAt: string;
+}
+
+export type ModelUsageSink = (usage: ModelUsage) => void;
 export interface GameModel {
   readonly model: string;
   isConfigured(): boolean;
   describe(context: AgentContext, request?: DescriptionRequest): Promise<string>;
   vote(context: AgentContext, allowedTargets: Player[]): Promise<{ targetId: string; reason: string }>;
   review(game: GameState): Promise<GameReview>;
+  completeJson?(task: ModelTask, messages: ChatMessage[], temperature: number): Promise<unknown>;
   setTraceSink?(sink: TraceSink): void;
+  setUsageSink?(sink: ModelUsageSink): void;
 }
 
 export class DeepSeekClient implements GameModel {
@@ -66,18 +79,28 @@ export class DeepSeekClient implements GameModel {
   private readonly apiKey: string;
   private readonly baseUrl: string;
   private readonly transport: ModelTransport;
+  private readonly timeoutMs: number;
+  private readonly retryDelayMs: number;
   private traceSink?: TraceSink;
+  private usageSink?: ModelUsageSink;
 
-  constructor(options?: { apiKey?: string; baseUrl?: string; model?: string; traceSink?: TraceSink; transport?: ModelTransport }) {
+  constructor(options?: { apiKey?: string; baseUrl?: string; model?: string; traceSink?: TraceSink; usageSink?: ModelUsageSink; transport?: ModelTransport; timeoutMs?: number; retryDelayMs?: number }) {
     this.apiKey = options?.apiKey ?? process.env.DEEPSEEK_API_KEY ?? '';
     this.baseUrl = (options?.baseUrl ?? process.env.DEEPSEEK_BASE_URL ?? 'https://api.deepseek.com').replace(/\/$/, '');
     this.model = options?.model ?? process.env.DEEPSEEK_MODEL ?? 'deepseek-v4-flash';
     this.traceSink = options?.traceSink;
+    this.usageSink = options?.usageSink;
     this.transport = options?.transport ?? fetch;
+    this.timeoutMs = options?.timeoutMs ?? 60_000;
+    this.retryDelayMs = options?.retryDelayMs ?? 1_000;
   }
 
   setTraceSink(sink: TraceSink): void {
     this.traceSink = sink;
+  }
+
+  setUsageSink(sink: ModelUsageSink): void {
+    this.usageSink = sink;
   }
 
   isConfigured(): boolean {
@@ -124,6 +147,9 @@ export class DeepSeekClient implements GameModel {
     );
   }
 
+  async completeJson(task: ModelTask, messages: ChatMessage[], temperature: number): Promise<unknown> {
+    return this.withRetryStandalone(task, async (attempt) => this.chatJson(task, messages, temperature, attempt));
+  }
   private traceProvenance(prompt: RenderedPrompt): void {
     if (!this.traceSink) return;
     this.traceSink.record({
@@ -151,7 +177,7 @@ export class DeepSeekClient implements GameModel {
     operation: (attempt: number) => Promise<T>,
   ): Promise<T> {
     let lastError: ModelError | undefined;
-    const maxAttempts = 2;
+    const maxAttempts = 4;
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       const startedAt = performance.now();
       try {
@@ -160,19 +186,41 @@ export class DeepSeekClient implements GameModel {
         return result;
       } catch (error) {
         const diagnostic = normalizeModelDiagnostic(error, attempt);
-        const willRetry = diagnostic.retryable && attempt < maxAttempts;
+        const retryLimit = diagnostic.errorType === 'network' || diagnostic.errorType === 'timeout' ? 4 : 2;
+        const willRetry = diagnostic.retryable && attempt < retryLimit;
         lastError =
           error instanceof ModelError
             ? new ModelError(error.message, error.cause, diagnostic)
             : new ModelError(messageForDiagnostic(task, diagnostic), error, diagnostic);
         this.traceModelCall(context, task, attempt, round(performance.now() - startedAt), 'failure', willRetry, diagnostic);
+        modelDebug('game', task, diagnostic, error, willRetry);
         if (!willRetry) throw lastError;
-        await new Promise((resolve) => setTimeout(resolve, 600));
+        await new Promise((resolve) => setTimeout(resolve, this.retryDelayMs * attempt));
       }
     }
     throw lastError ?? new ModelError('AI 服务暂时不可用，已自动重试；请稍后再试');
   }
 
+  private async withRetryStandalone<T>(task: ModelTask, operation: (attempt: number) => Promise<T>): Promise<T> {
+    let lastError: ModelError | undefined;
+    const maxAttempts = 2;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        return await operation(attempt);
+      } catch (error) {
+        const diagnostic = normalizeModelDiagnostic(error, attempt);
+        const willRetry = diagnostic.retryable && attempt < maxAttempts;
+        lastError =
+          error instanceof ModelError
+            ? new ModelError(error.message, error.cause, diagnostic)
+            : new ModelError(messageForDiagnostic(task, diagnostic), error, diagnostic);
+        modelDebug('judge', task, diagnostic, error, willRetry);
+        if (!willRetry) throw lastError;
+        await new Promise((resolve) => setTimeout(resolve, this.retryDelayMs * attempt));
+      }
+    }
+    throw lastError ?? new ModelError('AI 服务暂时不可用，已自动重试；请稍后再试');
+  }
   private async chatJson(task: ModelTask, messages: ChatMessage[], temperature: number, attempt: number): Promise<unknown> {
     if (!this.isConfigured()) {
       throw new ModelError('未配置模型密钥，请检查本地环境变量', undefined, {
@@ -183,7 +231,7 @@ export class DeepSeekClient implements GameModel {
     }
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30_000);
+    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
       const response = await this.transport(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
@@ -201,8 +249,17 @@ export class DeepSeekClient implements GameModel {
       });
       if (!response.ok) throw httpModelError(response.status, attempt);
       const payload = (await response.json()) as {
+        model?: string;
         choices?: Array<{ message?: { content?: string } }>;
+        usage?: {
+          prompt_tokens?: number;
+          completion_tokens?: number;
+          total_tokens?: number;
+          prompt_cache_hit_tokens?: number;
+          prompt_cache_miss_tokens?: number;
+        };
       };
+      this.recordUsage(payload.model, payload.usage);
       const content = payload.choices?.[0]?.message?.content;
       if (!content) {
         throw new ModelError('AI 返回了空内容', undefined, {
@@ -222,13 +279,45 @@ export class DeepSeekClient implements GameModel {
       }
     } catch (error) {
       if (error instanceof ModelError) throw error;
-      const diagnostic = classifyTransportError(error, attempt);
+      const diagnostic = controller.signal.aborted
+        ? { errorType: 'timeout' as const, retryable: true, attempt }
+        : classifyTransportError(error, attempt);
       throw new ModelError(messageForDiagnostic(task, diagnostic), error, diagnostic);
     } finally {
       clearTimeout(timeout);
     }
   }
 
+  private recordUsage(
+    providerModel: string | undefined,
+    usage: {
+      prompt_tokens?: number;
+      completion_tokens?: number;
+      total_tokens?: number;
+      prompt_cache_hit_tokens?: number;
+      prompt_cache_miss_tokens?: number;
+    } | undefined,
+  ): void {
+    if (!this.usageSink || !usage) return;
+    const promptTokens = tokenCount(usage.prompt_tokens);
+    const completionTokens = tokenCount(usage.completion_tokens);
+    if (promptTokens === null || completionTokens === null) return;
+    const cacheHit = tokenCount(usage.prompt_cache_hit_tokens) ?? 0;
+    const cacheMiss = tokenCount(usage.prompt_cache_miss_tokens) ?? Math.max(0, promptTokens - cacheHit);
+    try {
+      this.usageSink({
+        model: providerModel || this.model,
+        promptTokens,
+        completionTokens,
+        totalTokens: tokenCount(usage.total_tokens) ?? promptTokens + completionTokens,
+        promptCacheHitTokens: cacheHit,
+        promptCacheMissTokens: cacheMiss,
+        recordedAt: new Date().toISOString(),
+      });
+    } catch {
+      // Telemetry must never fail a model call.
+    }
+  }
   private traceModelCall(
     context: AgentContext | GameState,
     task: ModelTask,
@@ -260,6 +349,9 @@ export class DeepSeekClient implements GameModel {
   }
 }
 
+function tokenCount(value: number | undefined): number | null {
+  return Number.isInteger(value) && value !== undefined && value >= 0 ? value : null;
+}
 export function normalizeModelDiagnostic(error: unknown, attempt: number): ModelDiagnostic {
   if (error instanceof ModelError && error.diagnostic) return { ...error.diagnostic, attempt };
   if (error instanceof z.ZodError) return { errorType: 'schema_validation', retryable: true, attempt };
@@ -283,8 +375,37 @@ function httpModelError(status: number, attempt: number): ModelError {
   });
 }
 
+function modelDebug(
+  scope: 'game' | 'judge',
+  task: ModelTask,
+  diagnostic: ModelDiagnostic,
+  error: unknown,
+  willRetry: boolean,
+): void {
+  if (process.env.EVALUATION_DEBUG !== '1') return;
+  console.info(`[model-debug] ${JSON.stringify({
+    scope,
+    task,
+    attempt: diagnostic.attempt,
+    errorType: diagnostic.errorType,
+    httpStatus: diagnostic.httpStatus ?? null,
+    willRetry,
+    causeCode: findCauseCode(error) ?? null,
+  })}`);
+}
+
+function findCauseCode(error: unknown): string | undefined {
+  let current = error;
+  for (let depth = 0; depth < 4 && current && typeof current === 'object'; depth += 1) {
+    const candidate = current as { code?: unknown; cause?: unknown };
+    if (typeof candidate.code === 'string') return candidate.code.slice(0, 64);
+    current = candidate.cause;
+  }
+  return undefined;
+}
+
 function messageForDiagnostic(task: ModelTask, diagnostic: ModelDiagnostic): string {
-  const taskLabel = { describe: '描述', vote: '投票', review: '复盘' }[task];
+  const taskLabel = { describe: '描述', vote: '投票', review: '复盘', judge: '评审' }[task];
   const labels: Record<ModelErrorType, string> = {
     timeout: '请求超时',
     rate_limit: '供应商限流',

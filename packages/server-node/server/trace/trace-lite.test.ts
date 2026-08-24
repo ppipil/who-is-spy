@@ -14,7 +14,7 @@ describe('Trace Lite observability', () => {
     const target = voting.players.find((player) => !player.isHuman && player.alive)!;
     await engine.submitHumanVote(created.id, target.id);
 
-    expect(listTraceRuns(sink.events).some((run) => run.runId === created.id && run.sourceType === 'USER_GAME')).toBe(true);
+    expect(listTraceRuns(sink.events).some((run) => run.runId === created.id && run.sourceType === 'TEST')).toBe(true);
     expect(filterTraceEventsByRun(sink.events, created.id).length).toBeGreaterThan(0);
     expect(filterTraceEventsByCase(sink.events, created.id, created.id).length).toBeGreaterThan(0);
 

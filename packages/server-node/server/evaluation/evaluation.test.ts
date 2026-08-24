@@ -1,8 +1,43 @@
 import { describe, expect, it } from 'vitest';
 import { runEvaluation } from './evaluation.js';
 import { FakeGameModel } from '../support/test-utils.js';
+import type { DescriptionRequest } from '../core/description-quality.js';
 import type { AgentContext, Player } from '../core/types.js';
+import type { ModelUsageSink } from '../core/model.js';
 
+class SecretPolicyCapturingModel extends FakeGameModel {
+  readonly requests: Array<DescriptionRequest | undefined> = [];
+
+  override async describe(context: AgentContext, request?: DescriptionRequest): Promise<string> {
+    this.requests.push(request);
+    return super.describe(context);
+  }
+}
+
+class UsageReportingModel extends FakeGameModel {
+  private usageSink?: ModelUsageSink;
+
+  setUsageSink(sink: ModelUsageSink): void {
+    this.usageSink = sink;
+  }
+
+  override async describe(context: AgentContext, request?: DescriptionRequest): Promise<string> {
+    this.reportUsage();
+    return super.describe(context);
+  }
+
+  private reportUsage(): void {
+    this.usageSink?.({
+      model: this.model,
+      promptTokens: 100,
+      completionTokens: 20,
+      totalTokens: 120,
+      promptCacheHitTokens: 60,
+      promptCacheMissTokens: 40,
+      recordedAt: '2026-08-23T12:00:00.000Z',
+    });
+  }
+}
 class InvalidVoteModel extends FakeGameModel {
   override async vote(
     _context: AgentContext,
@@ -43,6 +78,46 @@ describe('evaluation harness', () => {
     expect(second.metrics.byStrategyId).toEqual(first.metrics.byStrategyId);
   });
 
+  it('uses the same hidden setup for the Normal and Nonsense canonical cases', async () => {
+    const model = new FakeGameModel();
+    const result = await runEvaluation({
+      games: 2,
+      seed: 42,
+      modelKind: 'fake',
+      model,
+      caseIds: ['normal-human-input', 'nonsense-human-input'],
+      humanDescriptions: ['可以防止身体被淋湿。', '一一二二，哈哈嘿嘿。'],
+    });
+
+    const contextsByGame = new Map<string, typeof model.descriptionContexts>();
+    for (const context of model.descriptionContexts) {
+      contextsByGame.set(context.game.gameId, [...(contextsByGame.get(context.game.gameId) ?? []), context]);
+    }
+    const setups = [...contextsByGame.values()].map((contexts) =>
+      [...new Map(contexts.map((context) => [context.identity.playerId, context.identity])).values()]
+        .map(({ playerId, role, word, strategyId }) => ({ playerId, role, word, strategyId }))
+        .sort((left, right) => left.playerId.localeCompare(right.playerId)),
+    );
+    expect(setups).toHaveLength(2);
+    expect(setups[1]).toEqual(setups[0]);
+    expect(result.metrics.humanInputResponsiveness?.available).toBe(true);
+  });
+
+  it('forwards the complete-word secret policy through the evaluation model wrapper', async () => {
+    const model = new SecretPolicyCapturingModel();
+    const result = await runEvaluation({
+      games: 1,
+      seed: 42,
+      modelKind: 'fake',
+      model,
+      wordPair: ['雨伞', '雨衣'],
+    });
+
+    expect(result.gate.passed).toBe(true);
+    expect(model.requests.length).toBeGreaterThan(0);
+    expect(model.requests.every((request) => request?.secretPolicy === 'complete_words')).toBe(true);
+  });
+
   it('fails the gate for invalid model output and incomplete state', async () => {
     const result = await runEvaluation({
       games: 1,
@@ -55,5 +130,21 @@ describe('evaluation harness', () => {
     expect(result.metrics.validVoteRate).toBe(0);
     expect(result.metrics.safety.illegalStateOccurrences).toBe(1);
     expect(result.gate.failures).toContain('validVoteRate must equal 1.0');
+  });
+  it('aggregates provider usage and computes per-game cost', async () => {
+    const result = await runEvaluation({
+      games: 2,
+      seed: 42,
+      modelKind: 'real',
+      model: new UsageReportingModel(),
+    });
+
+    expect(result.gate.passed).toBe(true);
+    expect(result.metrics.tokenUsage.source).toBe('provider');
+    expect(result.metrics.tokenUsage.requests).toBeGreaterThan(0);
+    expect(result.metrics.tokenUsage.total).toBeGreaterThan(0);
+    expect(result.metrics.cost).toMatchObject({ source: 'official', tier: 'off-peak' });
+    expect(result.metrics.cost.totalUsd).toBeGreaterThan(0);
+    expect(result.metrics.cost.perGameUsd).toBeGreaterThan(0);
   });
 });

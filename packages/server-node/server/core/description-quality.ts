@@ -1,3 +1,5 @@
+export type DescriptionSecretPolicy = 'complete_words' | 'own_word_characters';
+
 export type DescriptionViolationType =
   | 'empty'
   | 'invalid_length'
@@ -6,7 +8,9 @@ export type DescriptionViolationType =
 
 export interface DescriptionQualityInput {
   text: string;
+  ownSecret: string;
   allSecrets: readonly string[];
+  secretPolicy?: DescriptionSecretPolicy;
   acceptedSameRound: readonly string[];
   duplicateSimilarityThreshold: number;
 }
@@ -34,6 +38,7 @@ export interface DescriptionQualityEvent {
 
 export interface DescriptionRequest {
   attempt: number;
+  secretPolicy?: DescriptionSecretPolicy;
   repair?: { violationType: DescriptionViolationType; guidance: string };
 }
 
@@ -78,9 +83,8 @@ const lengthRule: DescriptionQualityRule = {
 };
 
 const secretRule: DescriptionQualityRule = {
-  check: ({ text, allSecrets }) => {
-    const normalized = normalizeDescription(text);
-    return secretLeakTerms(allSecrets).some((term) => normalized.includes(term))
+  check: ({ text, ownSecret, allSecrets, secretPolicy }) => {
+    return containsSecretLeak(text, ownSecret, allSecrets, secretPolicy)
       ? { type: 'secret_leak', message: '描述包含禁止公开的题目词或组成字' }
       : null;
   },
@@ -109,11 +113,16 @@ export const DEFAULT_DESCRIPTION_RULES: readonly DescriptionQualityRule[] = [
   duplicateRule,
 ];
 
-export function repairGuidance(violation: DescriptionQualityViolation): string {
+export function repairGuidance(
+  violation: DescriptionQualityViolation,
+  secretPolicy: DescriptionSecretPolicy = 'own_word_characters',
+): string {
   const guidance: Record<DescriptionViolationType, string> = {
     empty: '上次没有给出有效内容，请重新生成一句完整但含蓄的描述。',
     invalid_length: '上次长度不合规，请生成 2–60 个字符的一句话。',
-    secret_leak: '上次包含禁止公开的答案，请换用更间接的属性，且不要复述任何词语。',
+    secret_leak: secretPolicy === 'complete_words'
+      ? '上次包含完整题目词。请换用更间接的属性，不要复述任何完整题目词。'
+      : '上次包含完整题目词，或使用了自己题目词中的汉字。请换用更间接的属性，不要复述题目词或其中的字。',
     duplicate_description: '上次与本轮公开描述过于相似，请换一个未使用的角度和措辞。',
   };
   return guidance[violation.type];
@@ -134,6 +143,23 @@ export function secretLeakTerms(secrets: readonly string[]): string[] {
     }
   }
   return [...terms].sort((left, right) => right.length - left.length || left.localeCompare(right));
+}
+
+export function containsSecretLeak(
+  text: string,
+  ownSecret: string,
+  allSecrets: readonly string[],
+  secretPolicy: DescriptionSecretPolicy = 'own_word_characters',
+): boolean {
+  const normalized = normalizeDescription(text);
+  const completeSecretLeak = normalizedSecretTerms(allSecrets).some((term) => normalized.includes(term));
+  if (secretPolicy === 'complete_words') return completeSecretLeak;
+  const ownCharacterLeak = secretLeakTerms([ownSecret]).some((term) => normalized.includes(term));
+  return completeSecretLeak || ownCharacterLeak;
+}
+
+function normalizedSecretTerms(secrets: readonly string[]): string[] {
+  return [...new Set(secrets.map(normalizeDescription).filter(Boolean))];
 }
 
 export function descriptionSimilarity(left: string, right: string): number {

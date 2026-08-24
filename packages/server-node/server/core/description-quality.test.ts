@@ -25,6 +25,7 @@ class ScriptedDescriptionModel extends FakeGameModel {
 describe('DescriptionQualityGate', () => {
   const gate = new DescriptionQualityGate();
   const base = {
+    ownSecret: '秘密甲',
     allSecrets: ['秘密甲', '秘密乙'],
     acceptedSameRound: ['像是日常中常见的一种体验'],
     duplicateSimilarityThreshold: 0.72,
@@ -37,7 +38,8 @@ describe('DescriptionQualityGate', () => {
     expect(violation?.type).toBe('secret_leak');
     expect(JSON.stringify(violation)).not.toContain('秘密乙');
     expect(secretLeakTerms(['雨伞', '雨衣'])).toEqual(expect.arrayContaining(['雨伞', '雨衣', '雨', '伞', '衣']));
-    expect(gate.check({ ...base, allSecrets: ['雨伞', '雨衣'], text: '下雨时很常见' })?.type).toBe('secret_leak');
+    expect(gate.check({ ...base, ownSecret: '雨伞', allSecrets: ['雨伞', '雨衣'], text: '下雨时很常见' })?.type).toBe('secret_leak');
+    expect(gate.check({ ...base, ownSecret: '雨伞', allSecrets: ['雨伞', '雨衣'], text: '这和衣物没什么关系' })).toBeNull();
   });
 
   it('uses a fixed and explainable similarity threshold without rejecting distinct samples', () => {

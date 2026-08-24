@@ -1,10 +1,12 @@
 import { performance } from 'node:perf_hooks';
 import { GameEngine } from '../core/game-engine.js';
-import type { DescriptionQualityEvent } from '../core/description-quality.js';
-import type { GameModel } from '../core/model.js';
+import type { DescriptionQualityEvent, DescriptionRequest } from '../core/description-quality.js';
+import type { GameModel, ModelUsageSink } from '../core/model.js';
 import { DeepSeekClient } from '../core/model.js';
 import { FakeGameModel } from '../support/test-utils.js';
 import type { AgentContext, GameReview, GameState, Player, PublicGameState, Role, Vote } from '../core/types.js';
+import type { TraceEntrypoint, TraceSink } from '../trace/trace.js';
+import { createUsageAccumulator, type CostMetrics, type TokenUsageMetrics } from './usage-metrics.js';
 
 export type EvaluationModelKind = 'fake' | 'real';
 
@@ -15,6 +17,9 @@ export interface EvaluationOptions {
   model?: GameModel;
   humanDescriptions?: string[];
   caseIds?: string[];
+  wordPair?: readonly [string, string];
+  traceSink?: TraceSink;
+  traceEntrypoint?: TraceEntrypoint;
 }
 
 export interface StrategyEvaluationMetrics {
@@ -50,7 +55,8 @@ export interface EvaluationMetrics {
   validVoteRate: number;
   retryRate: number;
   latencyMs: { p50: number; p95: number };
-  tokenUsage: { input: number; output: number; total: number; source: 'unavailable' };
+  tokenUsage: TokenUsageMetrics;
+  cost: CostMetrics;
   byStrategyId: Record<string, StrategyEvaluationMetrics>;
   descriptionHomogeneity: number;
   humanInputResponsiveness?: {
@@ -107,9 +113,17 @@ class InstrumentedModel implements GameModel {
     return this.delegate.isConfigured();
   }
 
-  async describe(context: AgentContext): Promise<string> {
+  setTraceSink(sink: TraceSink): void {
+    this.delegate.setTraceSink?.(sink);
+  }
+
+  setUsageSink(sink: ModelUsageSink): void {
+    this.delegate.setUsageSink?.(sink);
+  }
+
+  async describe(context: AgentContext, request?: DescriptionRequest): Promise<string> {
     this.instrumentation.descriptionAttempts += 1;
-    return this.measure(() => this.delegate.describe(context));
+    return this.measure(() => this.delegate.describe(context, request));
   }
 
   async vote(
@@ -158,7 +172,8 @@ export async function runEvaluation(options: EvaluationOptions): Promise<Evaluat
   if (!Number.isInteger(options.games) || options.games < 1) throw new Error('--games must be a positive integer');
   if (!Number.isInteger(options.seed)) throw new Error('--seed must be an integer');
 
-  const random = mulberry32(options.seed);
+  const sharedRandom = mulberry32(options.seed);
+  const pairedCanonicalCases = hasPairedCanonicalCases(options.caseIds);
   const instrumentation: Instrumentation = {
     descriptionAttempts: 0,
     voteAttempts: 0,
@@ -169,8 +184,10 @@ export async function runEvaluation(options: EvaluationOptions): Promise<Evaluat
     strategyVotes: new Map(),
     qualityViolations: [],
   };
-  const delegate = options.model ?? (options.modelKind === 'fake' ? new FakeGameModel() : new DeepSeekClient());
+  const delegate: GameModel = options.model ?? (options.modelKind === 'fake' ? new FakeGameModel() : new DeepSeekClient());
   if (!delegate.isConfigured()) throw new Error(`model ${delegate.model} is not configured`);
+  const usage = createUsageAccumulator(options.games);
+  delegate.setUsageSink?.(usage.record);
   const model = new InstrumentedModel(delegate, instrumentation);
 
   let completedGames = 0;
@@ -182,8 +199,22 @@ export async function runEvaluation(options: EvaluationOptions): Promise<Evaluat
   const caseSummaries: EvaluationCaseSummary[] = [];
 
   for (let gameIndex = 0; gameIndex < options.games; gameIndex += 1) {
-    const engine = new GameEngine(model, random, (event) => instrumentation.qualityViolations.push(event));
-    let publicGame = engine.createGame();
+    const caseRandom = pairedCanonicalCases ? mulberry32(options.seed) : sharedRandom;
+    const engine = new GameEngine(
+      model,
+      caseRandom,
+      (event) => instrumentation.qualityViolations.push(event),
+      options.traceSink,
+      {
+        sourceType: 'EVAL_RUN',
+        entrypoint: options.traceEntrypoint ?? 'test',
+        modelKind: options.modelKind === 'real' ? 'real' : 'fake',
+      },
+    );
+    let publicGame = engine.createGame({
+      ...(options.wordPair ? { wordPair: options.wordPair, traceFixtureWords: options.wordPair } : {}),
+      descriptionSecretPolicy: 'complete_words',
+    });
     publicStateLeakOccurrences += countPublicStateLeaks(publicGame);
     try {
       publicGame = await driveGame(engine, publicGame, options.humanDescriptions?.[gameIndex]);
@@ -235,7 +266,8 @@ export async function runEvaluation(options: EvaluationOptions): Promise<Evaluat
       p50: percentile(instrumentation.latencies, 0.5),
       p95: percentile(instrumentation.latencies, 0.95),
     },
-    tokenUsage: { input: 0, output: 0, total: 0, source: 'unavailable' },
+    tokenUsage: usage.tokenUsage,
+    cost: usage.cost,
     byStrategyId: Object.fromEntries(
       [...strategyMetrics.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([id, group]) => [
         id,
@@ -336,6 +368,12 @@ function failedCaseSummary(options: EvaluationOptions, gameIndex: number, public
     votes: [],
     error: error instanceof Error ? error.message : String(error),
   };
+}
+
+function hasPairedCanonicalCases(caseIds: string[] | undefined): boolean {
+  return Boolean(
+    caseIds?.includes('normal-human-input') && caseIds.includes('nonsense-human-input'),
+  );
 }
 
 function humanInputResponsiveness(cases: EvaluationCaseSummary[]): EvaluationMetrics['humanInputResponsiveness'] {

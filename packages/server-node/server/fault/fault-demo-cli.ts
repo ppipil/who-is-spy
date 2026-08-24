@@ -38,7 +38,12 @@ async function main(): Promise<void> {
   }
   const memoryTrace = new InMemoryTraceSink();
   const traceSink = new CompositeTraceSink([memoryTrace, new JsonlTraceSink(options.traceFile)]);
-  const engine = new GameEngine(new FaultInjectingModel(scenarioFaults(options.scenario)), fixedRandom(), undefined, traceSink);
+  const model = new FaultInjectingModel(scenarioFaults(options.scenario));
+  const engine = new GameEngine(model, fixedRandom(), undefined, traceSink, {
+    sourceType: 'FAULT_RUN',
+    entrypoint: 'cli',
+    modelKind: 'fake',
+  });
   let game = engine.createGame();
   const result: DemoResult = {
     scenario: options.scenario,

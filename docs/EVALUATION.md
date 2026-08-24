@@ -48,10 +48,17 @@ The initial non-zero gate covers deterministic correctness only:
 
 These thresholds are exact because FakeModel and engine randomness are controlled; accepting anything lower would normalize a correctness regression. A test injects an invalid vote and proves the gate fails. Real-model quality rates and latency are deliberately not hard-gated at the baseline stage because the sample is small and provider behavior is noisy. Quality thresholds will be added only after fixed violation samples and enhanced measurements justify them.
 
+## Provider token usage and cost
+
+Real-model runs collect the provider's `usage` object for every successful HTTP response, including responses whose content later fails JSON/schema validation and is retried. Reports aggregate prompt, completion, total, cache-hit, and cache-miss tokens and expose total cost plus cost per game. FakeModel reports these values as unavailable rather than pretending that zero local tokens represent a free provider run.
+
+Cost uses the provider-returned model name. The built-in rate card covers the official `deepseek-v4-flash`, `deepseek-v4-pro`, and flash vision model families and applies DeepSeek's UTC weekday peak/off-peak windows. The rate card was verified against [DeepSeek Models & Pricing](https://api-docs.deepseek.com/quick_start/pricing) on 2026-08-24. Unknown aliases and private gateways still report tokens, but cost remains unavailable unless all three `DEEPSEEK_*_USD_PER_MILLION` overrides in `.env.example` are configured.
+
+Admin Evaluation keeps the usage collector attached through the optional AI Judge call, so the persisted report represents the full user-triggered evaluation run. Token/cost remain reporting metrics and do not affect the deterministic Engineering Gate.
 ## Metric limitations at baseline
 
 - `descriptionAttempts` counts logical `GameModel.describe` calls, not hidden HTTP/schema retry attempts inside `DeepSeekClient`.
-- Token usage is unavailable because the baseline client discards provider usage metadata.
+- The historical baseline did not retain provider usage metadata; current real-model runs do.
 - Rejection and retry rates remain zero until typed quality/trace events enter the evaluator.
 - FakeModel outcome rates prove regression behavior, not real-model Agent quality.
 

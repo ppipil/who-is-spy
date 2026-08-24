@@ -3,7 +3,7 @@ import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 
-export type ModelTask = 'describe' | 'vote' | 'review';
+export type ModelTask = 'describe' | 'vote' | 'review' | 'judge';
 
 export type ModelErrorType =
   | 'timeout'
@@ -47,6 +47,7 @@ export interface TraceRunMetadata {
   targetAgent?: string;
   faultType?: string;
   entrypoint?: TraceEntrypoint;
+  fixtureWords?: string[];
 }
 
 export interface ModelCallTraceEvent {
@@ -67,6 +68,11 @@ export interface ModelCallTraceEvent {
   latencyMs: number;
   willRetry: boolean;
   outcome: TraceOutcome;
+  model?: string;
+  temperature?: number;
+  inputSummary?: string;
+  output?: string;
+  promptTemplateVersion?: string;
   injectedFault?: { agentId: string; faultType: ModelErrorType; round: number; attempt: number };
   sourceType?: TraceSourceType;
   entrypoint?: TraceEntrypoint;
@@ -86,6 +92,11 @@ export interface PublicRuntimeTraceEvent {
   agentId?: string;
   agentName?: string;
   outcome: TraceOutcome;
+  model?: string;
+  temperature?: number;
+  inputSummary?: string;
+  output?: string;
+  promptTemplateVersion?: string;
   sourceType?: TraceSourceType;
   entrypoint?: TraceEntrypoint;
   modelKind?: TraceModelKind;
@@ -186,6 +197,7 @@ export interface TraceRunLifecycleEvent {
   targetAgent?: string;
   faultType?: string;
   entrypoint?: TraceEntrypoint;
+  fixtureWords?: string[];
 }
 
 export type RuntimeTraceEvent =
@@ -301,6 +313,7 @@ export function recordTraceRun(sink: TraceSink | undefined, metadata: TraceRunMe
     ...(metadata.targetAgent ? { targetAgent: metadata.targetAgent } : {}),
     ...(metadata.faultType ? { faultType: metadata.faultType } : {}),
     ...(metadata.entrypoint ? { entrypoint: metadata.entrypoint } : {}),
+    ...(metadata.fixtureWords ? { fixtureWords: metadata.fixtureWords } : {}),
   });
 }
 
@@ -319,6 +332,7 @@ export function listTraceRuns(events: readonly RuntimeTraceEvent[]): TraceRunMet
       ...(event.targetAgent ? { targetAgent: event.targetAgent } : {}),
       ...(event.faultType ? { faultType: event.faultType } : {}),
       ...(event.entrypoint ? { entrypoint: event.entrypoint } : {}),
+      ...(event.fixtureWords ? { fixtureWords: event.fixtureWords } : {}),
     });
   }
   return [...byRunId.values()].sort((left, right) => right.createdAt.localeCompare(left.createdAt));

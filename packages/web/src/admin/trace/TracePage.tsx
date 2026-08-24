@@ -7,7 +7,7 @@ import { TraceTimeline } from './TraceTimeline';
 import type { AdminStatus, PromptTraceRecord, RuntimeEvent, TimelineNode, TraceFilters } from './traceTypes';
 import './trace.css';
 
-const EMPTY_FILTERS: TraceFilters = { gameId: '', runId: '', round: '', agent: '', task: '', errorType: '' };
+const EMPTY_FILTERS: TraceFilters = { id: '', sourceType: '' };
 
 export function TracePage() {
   const [status, setStatus] = useState<AdminStatus | null>(null);
@@ -27,13 +27,13 @@ export function TracePage() {
       const [nextStatus, traceResult, promptResult] = await Promise.all([
         traceApi.status(),
         traceApi.traces(filters),
-        traceApi.promptTraces({ gameId: filters.gameId, runId: filters.runId, round: filters.round, task: filters.task, agentId: filters.agent }),
+        traceApi.promptTraces(filters),
       ]);
       setStatus(nextStatus);
       setEvents(traceResult.events);
       setPrompts(promptResult.records);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'Failed to load trace');
+      setError(loadError instanceof Error ? loadError.message : '加载追踪失败');
     } finally {
       setLoading(false);
     }
@@ -63,13 +63,13 @@ export function TracePage() {
     <div className="trace-page">
       <header className="trace-header">
         <div>
-          <span>Admin Lite</span>
-          <h1>Trace</h1>
+          <span>轻量管理台 Admin Lite</span>
+          <h1>追踪 Trace</h1>
         </div>
         <div className="trace-status">
-          <span>{status?.runtimeTrace ?? 'OFF'}</span>
-          <span>{status?.model ?? 'unknown'}</span>
-          <span>{status?.configured ? 'configured' : 'not configured'}</span>
+          <span>追踪: {status?.runtimeTrace ?? 'OFF'}</span>
+          <span>模型: {status?.model ?? '未知'}</span>
+          <span>{status?.configured ? '已配置 configured' : '未配置 not configured'}</span>
         </div>
       </header>
       {error && <div className="admin-error">{error}</div>}

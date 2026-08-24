@@ -102,7 +102,8 @@
   gap: 4px;
 }
 
-.trace-filters input {
+.trace-filters input,
+.trace-filters select {
   width: 100%;
   box-sizing: border-box;
   padding: 8px 9px;
@@ -228,4 +229,30 @@
   .trace-layout { flex-direction: column; }
   .trace-run-explorer,
   .trace-inspector { flex-basis: auto; }
+}
+
+.trace-inspector {
+  flex-basis: clamp(400px, 30vw, 520px);
+}
+
+.trace-panel-title > div,
+.trace-panel-title strong,
+.timeline-node strong,
+.timeline-node small,
+.trace-text-block,
+.trace-text-block summary {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.timeline-node strong {
+  flex: 1 1 180px;
+}
+
+.trace-text-block pre {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  max-height: 360px;
+  word-break: break-word;
 }

@@ -26,7 +26,7 @@ The planned composable gate covers empty/invalid length, direct secret leakage, 
 
 ## Evaluation and gates
 
-The evaluation CLI supports seeded FakeModel regression and explicitly selected real-model sampling. Metrics include completion, quality rejection types, valid votes, retries, latency percentiles, token usage, strategy outcomes, and a description-homogeneity proxy. Hard correctness gates are deterministic and non-zero on failure; noisy real-model metrics are reported separately with sample-size limitations. Baseline values and limitations are in `docs/EVALUATION.md`.
+The evaluation CLI supports seeded FakeModel regression and explicitly selected real-model sampling. Metrics include completion, quality rejection types, valid votes, retries, latency percentiles, provider token usage, USD cost, strategy outcomes, and a description-homogeneity proxy. Hard correctness gates are deterministic and non-zero on failure; noisy real-model metrics are reported separately with sample-size limitations. Baseline values and limitations are in `docs/EVALUATION.md`.
 
 ## Trace, fault injection, and replay
 
